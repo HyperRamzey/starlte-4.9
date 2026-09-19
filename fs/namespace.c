@@ -1992,7 +1992,7 @@ static int do_umount(struct mount *mnt, int flags)
 
 	/* Recheck MNT_LOCKED with the locks held */
 	retval = -EINVAL;
-	if (mnt->mnt.mnt_flags & MNT_LOCKED)
+	if (mnt->mnt->mnt_flags & MNT_LOCKED)
 		goto out;
 
 	event++;
@@ -2189,7 +2189,7 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 		for (s = r; s; s = next_mnt(s, r)) {
 			if (!(flag & CL_COPY_UNBINDABLE) &&
 			    IS_MNT_UNBINDABLE(s)) {
-				if (s->mnt.mnt_flags & MNT_LOCKED) {
+				if (s->mnt->mnt_flags & MNT_LOCKED) {
 					/* Both unbindable and locked. */
 					q = ERR_PTR(-EPERM);
 					goto out;

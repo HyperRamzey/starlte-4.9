@@ -553,7 +553,8 @@ CONFIG_ARM64_SW_TTBR0_PAN=y
 #
 # JOP Attack Prevention
 #
-CONFIG_RKP_CFP_JOPP=y
+# disabled: scripts/rkp_cfp/instrument.py is python2-only; no python2 on build host
+CONFIG_RKP_CFP_JOPP=n
 CONFIG_RKP_CFP_JOPP_MAGIC=0x00be7bad
 
 #

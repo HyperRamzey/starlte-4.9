@@ -691,6 +691,8 @@ void propagate_remount(struct mount *mnt)
 {
 #ifdef CONFIG_RKP_NS_PROT
 	struct super_block *sb = mnt->mnt->mnt_sb;
+	struct mount *parent = mnt->mnt_parent;
+	struct mount *p = mnt, *m;
 #else
 	struct mount *parent = mnt->mnt_parent;
 	struct mount *p = mnt, *m;
@@ -703,6 +705,6 @@ void propagate_remount(struct mount *mnt)
 				p = propagation_next(p, parent)) {
 		m = __lookup_mnt(&p->mnt, mnt->mnt_mountpoint);
 		if (m)
-			sb->s_op->copy_mnt_data(m->mnt.data, mnt->mnt.data);
+			sb->s_op->copy_mnt_data(m->mnt->data, mnt->mnt->data);
 	}
 }
