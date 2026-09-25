@@ -449,6 +449,24 @@ KBUILD_CFLAGS   += -Wno-implicit-enum-enum-cast -Wno-expansion-to-defined \
 		   -Wno-default-const-init-field-unsafe \
 		   -Wno-default-const-init-var-unsafe \
 		   -Wno-ignored-optimization-argument
+# Three more that carry no semantics at all in this code:
+#  -Wparentheses-equality       "if ((a == b))" -- a double paren pair around an
+#                              equality test. Purely cosmetic; e.g.
+#                              drivers/media/platform/exynos/mfc/s5p_mfc_{dec,enc}_ops.c
+#  -Wlogical-not-parentheses    "!a == b", which is legal C and appears in
+#                              drivers/misc/modem_v1/modem_utils.c and
+#                              drivers/input/touchscreen/sec_ts/sec_ts_fn.c
+#  -Wheader-guard               flags "#ifndef X" followed by "#define Y". Most
+#                              hits here are intentional conditional defines
+#                              rather than guards, e.g.
+#                              fimc-is-vendor-config_{star,star2,crown}.h do
+#                              "#ifndef CONFIG_SEC_FACTORY" then
+#                              "#define USE_CAMERA_PREPARE_RETENTION_ON_BOOT".
+#                              The one genuine typo of this kind
+#                              (fimc-is-module-3h7_sunny.h, SUNNY vs SYNNY) is
+#                              fixed in the same series.
+KBUILD_CFLAGS   += -Wno-parentheses-equality -Wno-logical-not-parentheses \
+		   -Wno-header-guard
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
