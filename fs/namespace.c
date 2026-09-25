@@ -1992,7 +1992,11 @@ static int do_umount(struct mount *mnt, int flags)
 
 	/* Recheck MNT_LOCKED with the locks held */
 	retval = -EINVAL;
+#ifdef CONFIG_RKP_NS_PROT
 	if (mnt->mnt->mnt_flags & MNT_LOCKED)
+#else
+	if (mnt->mnt.mnt_flags & MNT_LOCKED)
+#endif
 		goto out;
 
 	event++;
@@ -2189,7 +2193,11 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 		for (s = r; s; s = next_mnt(s, r)) {
 			if (!(flag & CL_COPY_UNBINDABLE) &&
 			    IS_MNT_UNBINDABLE(s)) {
+#ifdef CONFIG_RKP_NS_PROT
 				if (s->mnt->mnt_flags & MNT_LOCKED) {
+#else
+				if (s->mnt.mnt_flags & MNT_LOCKED) {
+#endif
 					/* Both unbindable and locked. */
 					q = ERR_PTR(-EPERM);
 					goto out;

@@ -559,6 +559,18 @@ CONFIG_ARM64_SW_TTBR0_PAN=y
 # JOP Attack Prevention
 #
 # CONFIG_RKP_CFP_JOPP is not set
+# The tree's own code (fs/namespace.c and ~60 other sites, plus fs/mount.h's
+# "struct vfsmount *mnt" vs "struct vfsmount mnt" split) is written for the
+# RKP namespace-protection layout. fs/namespace.c uses mnt->mnt->... in ~65
+# places, which only type-checks when CONFIG_RKP_NS_PROT is on. The defconfig
+# shipped without these, so a clean build of it fails to compile; the previous
+# successful build of this tree (/root/g2q_build.log) had them enabled.
+# Enable the full RKP_KDP chain here so the defconfig and the code agree.
+CONFIG_UH=y
+CONFIG_UH_RKP=y
+CONFIG_RKP_KDP=y
+CONFIG_RKP_NS_PROT=y
+CONFIG_RKP_DMAP_PROT=y
 
 #
 # ARMv8.1 architectural features
@@ -590,8 +602,19 @@ CONFIG_TIMA=y
 CONFIG_TIMA_LKMAUTH=y
 CONFIG_TIMA_LKM_BLOCK=y
 # CONFIG_TIMA_LKMAUTH_CODE_PROT is not set
-# CONFIG_UH is not set
+# The tree's own code is written for the RKP namespace-protection layout:
+# fs/mount.h declares `struct mount` with `struct vfsmount *mnt` under
+# CONFIG_RKP_NS_PROT and `struct vfsmount mnt` otherwise, and fs/namespace.c
+# dereferences mnt->mnt->... in ~65 places, which only type-checks in the
+# RKP_NS_PROT branch. This defconfig shipped with UH off, so a clean build of
+# it cannot compile; the tree's previous successful build
+# (/root/g2q_build.log) had the whole RKP_KDP chain enabled. Match it.
+CONFIG_UH=y
 # CONFIG_UH_INFORM is not set
+CONFIG_UH_RKP=y
+CONFIG_RKP_KDP=y
+CONFIG_RKP_NS_PROT=y
+CONFIG_RKP_DMAP_PROT=y
 
 #
 # Userspace binary formats

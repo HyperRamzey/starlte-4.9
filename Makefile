@@ -395,6 +395,17 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Wno-format-security \
 		   -Werror \
 		   -std=gnu89
+# clang 24 reports three warnings this tree's vendor code trips over that the
+# clang it was validated against did not. None of them indicate a defect here:
+#   -Wunused-but-set-variable  vendor code assigns locals for the side effect
+#                              (mm/vmscan.c gb, mm/shmem.c info, kernel/fork.c
+#                              stack_vm_area, crypto/{seqiv,echainiv}.c alg, ...)
+#   -Wunused-but-set-global    same, at file scope (security/proca/proca_lsm.c
+#                              g_proca_inited, which is only ever written)
+#   -Wmisleading-indentation   the kernel predates clang's indentation lint
+# Keep -Werror for everything else: real errors must still stop the build.
+KBUILD_CFLAGS   += -Wno-unused-but-set-variable -Wno-unused-but-set-global \
+		   -Wno-misleading-indentation
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
