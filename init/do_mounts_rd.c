@@ -300,7 +300,7 @@ int __init rd_load_disk(int n)
 	return rd_load_image("/dev/root");
 }
 
-static int exit_code;
+static int exit_code __attribute__((unused));
 static int decompress_error;
 static int crd_infd, crd_outfd;
 
