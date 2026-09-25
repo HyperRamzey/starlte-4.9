@@ -406,6 +406,26 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 # Keep -Werror for everything else: real errors must still stop the build.
 KBUILD_CFLAGS   += -Wno-unused-but-set-variable -Wno-unused-but-set-global \
 		   -Wno-misleading-indentation
+# Four more diagnostics that are new in clang 24 and that this C code trips
+# over without any of them being a defect:
+#  -Wimplicit-enum-enum-cast   drivers/battery_v2/sec_battery.c assigns between
+#                              enum power_supply_property and the vendor's
+#                              enum power_supply_ext_property. Assigning one
+#                              enum to another is ordinary C.
+#  -Wdefault-const-init-{field,var}-unsafe
+#                              "default initialization ... with const member
+#                              leaves the object uninitialized". Fires on
+#                              struct kernel_param locals (kernel/params.c)
+#                              and on rt->dst.expires in net/ipv{4,6}/route.c,
+#                              where dst comes from a void* cast, so clang
+#                              cannot see the initialisation.
+#  -Wignored-optimization-argument
+#                              crypto/Makefile and drivers/crypto/fmp/Makefile
+#                              pass -fno-merge-constants, a GCC-only knob.
+KBUILD_CFLAGS   += -Wno-implicit-enum-enum-cast \
+		   -Wno-default-const-init-field-unsafe \
+		   -Wno-default-const-init-var-unsafe \
+		   -Wno-ignored-optimization-argument
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=

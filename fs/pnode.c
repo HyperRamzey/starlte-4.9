@@ -703,7 +703,11 @@ void propagate_remount(struct mount *mnt)
 		return;
 	for (p = propagation_next(parent, parent); p;
 				p = propagation_next(p, parent)) {
+#ifdef CONFIG_RKP_NS_PROT
+		m = __lookup_mnt(p->mnt, mnt->mnt_mountpoint);
+#else
 		m = __lookup_mnt(&p->mnt, mnt->mnt_mountpoint);
+#endif
 		if (m)
 			sb->s_op->copy_mnt_data(m->mnt->data, mnt->mnt->data);
 	}
