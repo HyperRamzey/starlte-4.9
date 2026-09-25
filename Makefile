@@ -467,6 +467,11 @@ KBUILD_CFLAGS   += -Wno-implicit-enum-enum-cast -Wno-expansion-to-defined \
 #                              fixed in the same series.
 KBUILD_CFLAGS   += -Wno-parentheses-equality -Wno-logical-not-parentheses \
 		   -Wno-header-guard
+#  -Wswitch-bool             drivers/scsi/ufs/ufs-exynos.c switches on a
+#                              bool 'notify' with PRE_CHANGE/POST_CHANGE cases. bool
+#                              promotes to int, so this is well-defined and works;
+#                              the cases cover both possible values.
+KBUILD_CFLAGS   += -Wno-switch-bool
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=

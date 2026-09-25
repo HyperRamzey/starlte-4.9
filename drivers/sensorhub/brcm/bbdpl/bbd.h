@@ -19,9 +19,11 @@
 #define __BBD_H__
 
 #pragma pack(4)
-typedef unsigned char   uint8_t;
-typedef unsigned short  uint16_t;
-typedef unsigned        uint32_t;
+/* The uint8_t/uint16_t/uint32_t typedefs that used to live here duplicate the
+ * ones include/linux/types.h already provides (types.h:106-107), and
+ * re-deriving an identical typedef is a C11-only allowance -- this tree builds
+ * as C99, so every file under drivers/sensorhub/brcm that includes both failed
+ * with -Wtypedef-redefinition. Removed; use the kernel's. */
 
 union long_union_t
 {
