@@ -422,7 +422,30 @@ KBUILD_CFLAGS   += -Wno-unused-but-set-variable -Wno-unused-but-set-global \
 #  -Wignored-optimization-argument
 #                              crypto/Makefile and drivers/crypto/fmp/Makefile
 #                              pass -fno-merge-constants, a GCC-only knob.
-KBUILD_CFLAGS   += -Wno-implicit-enum-enum-cast \
+#  -Wexpansion-to-defined     drivers/gator_5.27/gator.h defines
+#                              GATOR_IKS_SUPPORT as defined(CONFIG_BL_SWITCHER)
+#                              and uses it in #if. Rewriting the macro to drop the
+#                              defined() wrappers just trades this for -Wundef,
+#                              since the kernel builds with -Wundef and a disabled
+#                              CONFIG_ is undefined. The construct is a deliberate
+#                              vendor idiom that every toolchain accepts.
+#  -Wstrncat-size             drivers/input/touchscreen/sec_ts/sec_ts_fn.c does
+#                              strncat(buffer, temp, CMD_RESULT_WORD_LEN) where
+#                              temp is char[CMD_RESULT_WORD_LEN]. The size is the
+#                              source width on purpose -- these build fixed-width
+#                              decimal fields, and temp is NUL-terminated by the
+#                              snprintf above, so strncat stops there anyway.
+#  -Wbitwise-instead-of-logical
+#                              drivers/input/touchscreen/of_touchscreen.c writes
+#                                  data_present = touchscreen_get_prop_u32(..) |
+#                                               touchscreen_get_prop_u32(..);
+#                              DO NOT "fix" this to ||. Both calls must run: they
+#                              each fill a different out-parameter (maximum and
+#                              fuzz), and || would short-circuit and leave the
+#                              second one unexecuted, so fuzz would keep its
+#                              default. The '|' is deliberate.
+KBUILD_CFLAGS   += -Wno-implicit-enum-enum-cast -Wno-expansion-to-defined \
+		   -Wno-strncat-size -Wno-bitwise-instead-of-logical \
 		   -Wno-default-const-init-field-unsafe \
 		   -Wno-default-const-init-var-unsafe \
 		   -Wno-ignored-optimization-argument

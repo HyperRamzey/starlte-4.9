@@ -14,15 +14,9 @@
 #include <linux/mm.h>
 #include <linux/list.h>
 
-/* These three are consumed by #if, so they must not expand to `defined(...)`:
- * `defined` produced by macro expansion has undefined behaviour, and clang 24
- * diagnoses it (-Wexpansion-to-defined). In a #if an undefined identifier
- * already evaluates to 0, which is exactly what !defined(X) means, and
- * CONFIG_FOO is defined by Kconfig as 1 when enabled and left undefined (hence
- * 0) when not. So drop the `defined()` wrappers. */
-#define GATOR_PERF_PMU_SUPPORT  (CONFIG_PERF_EVENTS && (!(__arm__ || __aarch64__) || CONFIG_HW_PERF_EVENTS))
-#define GATOR_CPU_FREQ_SUPPORT  CONFIG_CPU_FREQ
-#define GATOR_IKS_SUPPORT       CONFIG_BL_SWITCHER
+#define GATOR_PERF_PMU_SUPPORT  (defined(CONFIG_PERF_EVENTS) && (!(defined(__arm__) || defined(__aarch64__)) || defined(CONFIG_HW_PERF_EVENTS)))
+#define GATOR_CPU_FREQ_SUPPORT  defined(CONFIG_CPU_FREQ)
+#define GATOR_IKS_SUPPORT       defined(CONFIG_BL_SWITCHER)
 
 /* cpu ids */
 #define CORTEX_A5    0x41c05
