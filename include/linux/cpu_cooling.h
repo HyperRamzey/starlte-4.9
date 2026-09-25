@@ -28,8 +28,14 @@
 #include <linux/thermal.h>
 #include <linux/cpumask.h>
 
+/* cpu_cooling.h and gpu_cooling.h both declare get_static_t with this exact
+ * signature. Redefining a typedef is only legal from C11, and the kernel is
+ * built as C99, so guard the shared prototype. */
+#ifndef __GET_STATIC_T_DEFINED__
+#define __GET_STATIC_T_DEFINED__
 typedef int (*get_static_t)(cpumask_t *cpumask, int interval,
 			    unsigned long voltage, u32 *power);
+#endif
 
 /**
  * struct cpufreq_cooling_device - data for cooling device with cpufreq
