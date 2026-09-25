@@ -385,14 +385,21 @@ alternative_endif
 	sub	\tmp2, \tmp1, #1
 	bic	\kaddr, \kaddr, \tmp2
 9998:
-	.if	(\op == cvau || \op == cvac)
+	.set	__dcache_need_alt, 1
+	.ifc	\op, cvau
+	.set	__dcache_need_alt, 0
+	.endif
+	.ifc	\op, cvac
+	.set	__dcache_need_alt, 0
+	.endif
+	.if	__dcache_need_alt
+	dc	\op, \kaddr
+	.else
 alternative_if_not ARM64_WORKAROUND_CLEAN_CACHE
 	dc	\op, \kaddr
 alternative_else
 	dc	civac, \kaddr
 alternative_endif
-	.else
-	dc	\op, \kaddr
 	.endif
 	add	\kaddr, \kaddr, \tmp1
 	cmp	\kaddr, \size
