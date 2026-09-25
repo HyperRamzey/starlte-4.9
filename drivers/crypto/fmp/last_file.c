@@ -9,6 +9,9 @@
  * (at your option) any later version.
  */
 
+
+#include <linux/compiler.h>
+
 #include <linux/init.h>
 
 __attribute__ ((section(".rodata"), unused))
@@ -17,5 +20,5 @@ const unsigned char last_fmp_rodata = 0x20;
 __attribute__ ((section(".text"), unused))
 void last_fmp_text(void){}
 
-__attribute__ ((section(".init.text"), optimize("-O0"), unused))
+__attribute__ ((section(".init.text"), __optimize("-O0"), unused))
 static void last_fmp_init(void){};
