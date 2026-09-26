@@ -1,0 +1,29 @@
+#
+# GATE G3 starting point: Exynos7885 / EXYNOS7904 Galaxy A30s (SM-A307).
+#
+# Deliberately minimal and honest. It selects only what actually exists in this
+# tree today: the SoC/machine Kconfig, the Exynos8 family block (the 4.9 tree's
+# equivalent of 4.4's ARCH_EXYNOS7 -- same two selects, HAVE_ARM_SCU+HAVE_SMP),
+# and the OF/DTC machinery needed to emit the DTBs.
+#
+# NOT enabled on purpose: every Samsung 7885 driver below is still unported, so
+# switching it on would only produce a kernel that claims hardware it cannot drive.
+# See the node->driver audit in the G3 report for the work plan.
+#
+CONFIG_SYS_KERNEL=y
+CONFIG_ARM=y
+CONFIG_ARM64=y
+
+CONFIG_ARCH_EXYNOS=y
+CONFIG_ARCH_EXYNOS8=y
+CONFIG_SOC_EXYNOS7885=y
+CONFIG_MACH_EXYNOS7885_A30s_OPEN=y
+
+# Device tree emission
+CONFIG_OF=y
+CONFIG_OF_FLATTREE=y
+CONFIG_DTC=y
+CONFIG_EXYNOS_DTBTOOL=y
+CONFIG_EXYNOS_DTBH_PLATFORM_CODE=0x50a6
+CONFIG_EXYNOS_DTBH_SUBTYPE_CODE=0x217584da
+CONFIG_EXYNOS_DTBH_PAGE_SIZE=2048
