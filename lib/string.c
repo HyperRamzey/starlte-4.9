@@ -500,6 +500,7 @@ size_t strnlen(const char *s, size_t count)
 	return sc - s;
 }
 EXPORT_SYMBOL(strnlen);
+
 #endif
 
 #ifndef __HAVE_ARCH_STRSPN
@@ -998,3 +999,40 @@ char *strreplace(char *s, char old, char new)
 	return s;
 }
 EXPORT_SYMBOL(strreplace);
+
+/**
+ * stpcpy - copy a string from src to dest returning a pointer to the new end
+ *          of dest, including src's %NUL-terminator. May overrun dest.
+ * @dest: pointer to end of string being copied into. Must be large enough
+ *        to receive copy.
+ * @src: pointer to the beginning of string being copied from. Must not overlap
+ *        dest.
+ *
+ * stpcpy differs from strcpy in a key way: the return value is a pointer
+ * to the new %NUL-terminating character in @dest. (For strcpy, the return
+ * value is a pointer to the start of @dest). This interface is considered
+ * unsafe as it doesn't perform bounds checking of the inputs. As such it's
+ * not recommended for usage. Instead, its definition is provided in case
+ * the compiler lowers other libcalls to stpcpy.
+ *
+ * Restored from the 4.4 A30s tree, where the same file has it. This tree was
+ * missing it entirely, and nothing declares stpcpy anywhere -- the compiler
+ * knows it as a builtin and lowers ordinary string operations into a call to it,
+ * so the reference only appears at link time. The tree therefore failed at the
+ * final vmlinux link with "undefined reference to `stpcpy'" out of
+ * drivers/pci/pci-sysfs.c, drivers/tty/tty_io.c, drivers/usb/class/usblp.c and
+ * drivers/media/platform/exynos/fimc-is2/vendor/mcd/fimc-is-sysfs.c rather than
+ * failing to compile.
+ *
+ * Keep this OUTSIDE the "#ifndef __HAVE_ARCH_STR*" blocks above: asm/string.h
+ * defines __HAVE_ARCH_STRNLEN (and friends) for arm64, so anything placed next to
+ * EXPORT_SYMBOL(strnlen) is compiled out silently.
+ */
+char *stpcpy(char *__restrict__ dest, const char *__restrict__ src);
+char *stpcpy(char *__restrict__ dest, const char *__restrict__ src)
+{
+	while ((*dest++ = *src++) != '\0')
+		/* nothing */;
+	return --dest;
+}
+EXPORT_SYMBOL(stpcpy);
