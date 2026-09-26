@@ -35,6 +35,9 @@ config SND_SAMSUNG_I2S
 
 config SND_SOC_SAMSUNG_DISPLAYPORT
 	tristate "Samsung display port audio interface support"
+	depends on SOC_EXYNOS8895 || SOC_EXYNOS9810
+	# The A30s (EXYNOS7885) has no DisplayPort controller, so this
+	# driver has no valid FIFO address there and must not be built.
 
 config SND_SOC_SAMSUNG_NEO1973_WM8753
 	tristate "Audio support for Openmoko Neo1973 Smartphones (GTA02)"

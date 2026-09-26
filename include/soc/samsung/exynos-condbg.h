@@ -55,6 +55,13 @@ static inline int ecd_get_enable(void)
 	return false;
 }
 #endif
+/* include/linux/exynos-ss.h defines this name as a no-op macro when the
+ * S3C2410 watchdog is absent. Without this #undef the macro rewrites the
+ * static inline below and the file fails to parse.
+ */
+#ifdef s3c2410wdt_set_emergency_reset
+#undef s3c2410wdt_set_emergency_reset
+#endif
 #ifdef CONFIG_S3C2410_WATCHDOG
 extern int s3c2410wdt_set_emergency_reset(unsigned int timeout, int index);
 #else

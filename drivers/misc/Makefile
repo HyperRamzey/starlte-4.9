@@ -72,6 +72,7 @@ KCOV_INSTRUMENT_lkdtm_rodata.o	:= n
 
 # Secure OS Mobicore Interface
 obj-$(CONFIG_TRUSTONIC_TEE)	+= tzic64.o
+obj-$(CONFIG_MOTOR_S2MU106)	+= s2mu106_haptic.o timed_output.o
 obj-$(CONFIG_TIMA_LOG)		+= tima_debug_log.o
 
 OBJCOPYFLAGS :=

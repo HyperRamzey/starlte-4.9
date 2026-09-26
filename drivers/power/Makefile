@@ -71,4 +71,7 @@ obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
 obj-$(CONFIG_POWER_RESET)	+= reset/
 obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
+obj-$(CONFIG_PM_S2MU106)	+= s2mu106_pmeter.o
+obj-$(CONFIG_FUELGAUGE_S2MU106)	+= s2mu106_fuelgauge.o
+obj-$(CONFIG_CHARGER_S2MU106)	+= s2mu106_charger.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
