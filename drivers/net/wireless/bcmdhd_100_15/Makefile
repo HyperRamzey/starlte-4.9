@@ -1489,6 +1489,17 @@ EXTRA_CFLAGS += -DSRCBASE=\"$(src)\"
 EXTRA_CFLAGS += -I$(src)/include/ -I$(src)/
 EXTRA_CFLAGS += $(call cc-option, -Wunused-but-set-variable)
 EXTRA_CFLAGS += $(call cc-option, -Wmaybe-uninitialized)
+# DHDCFLAGS above re-adds -Wall, and ccflags-y is appended after KBUILD_CFLAGS,
+# so any -Wno- added in the top-level Makefile is undone for every file in this
+# directory. Re-assert the ones this tree needs, here, where they come last.
+# -Wno-tautological-overlap-compare: wl_android.c:8981 reads
+#     if ((adps_mode < 0) && (1 < adps_mode))
+# which can never be true -- a value cannot be both below 0 and above 1. The
+# author meant ||, so the range check on SET_ADPS has never fired. Correcting
+# it would start rejecting arguments that dhd_enable_adps() currently accepts
+# (it truncates to uint8), which is a behaviour change, so it is left alone and
+# tracked as a port-time decision rather than fixed in a build commit.
+EXTRA_CFLAGS += -Wno-tautological-overlap-compare
 KBUILD_CFLAGS += -I$(LINUXDIR)/include -I$(CURDIR)
 
 DHDOFILES := dhd_pno.o dhd_common.o dhd_ip.o dhd_custom_gpio.o dhd_custom_sec.o \
