@@ -472,6 +472,63 @@ KBUILD_CFLAGS   += -Wno-parentheses-equality -Wno-logical-not-parentheses \
 #                              promotes to int, so this is well-defined and works;
 #                              the cases cover both possible values.
 KBUILD_CFLAGS   += -Wno-switch-bool
+#  -Wsizeof-pointer-div           cmucal.h's CLK_MUX macro sets `.num_parents = sizeof(_pids)/sizeof((_pids)[0])`
+#                                  but `struct cmucal_mux::pid` is a `unsigned int *`, and 66 of the 198 CLK_MUX
+#                                  call sites in cal-if/exynos9810/cmucal-node.c pass NULL for it. Indexing a
+#                                  pointer in a sizeof is not an array count; clang is right. The value it
+#                                  produces is 8, because GNU C gives sizeof(void)==1 so it computes 8/1. That is
+#                                  a latent NULL dereference: cal-if/ra.c loops
+#                                  `for (i = 0; i < mux->num_parents; i++) ra_recalc_rate(mux->pid[i])`, so those
+#                                  66 muxes would dereference NULL 8 times. The correct value is 0, but changing
+#                                  66 call sites alters clock-parent semantics, so it needs deliberate review
+#                                  rather than riding along in a build fix. The identical macro exists in the
+#                                  4.4 A30s tree (30 NULL sites) and in kevios12, so this is long-standing vendor
+#                                  code, not a 4.9 regression. Tracked as a port-time decision.
+#  -Wconstant-conversion          cal-if/exynos9810/cmucal-node.c:34 gives PLL_MMC a kdiv of 50412, but
+#                                  struct cmucal_pll_table.kdiv is a `signed short` and the hardware field is 16
+#                                  bits wide (SFR_ACCESS(PLL_CON3_PLL_MMC_DIV_K, 0, 16, ...)), so the constant
+#                                  is out of range and has always been truncated to -15124. The 50412 is
+#                                  deliberate rather than a typo, and that is the problem: ra_get_pll() computes
+#                                  fout = 26MHz*((mdiv<<16)+kdiv)/(pdiv<<sdiv)>>16, and kdiv=50412 reproduces this
+#                                  entry's own .rate field of 825999878 to within 1Hz, whereas the truncated
+#                                  -15124 yields 799999877. Every other kdiv in the tree (24319, -20665) is in
+#                                  signed range, so this single entry disagrees with its own .rate: the PLL can
+#                                  only reach 826MHz if .kdiv is read back as unsigned, and that would change
+#                                  ra_get_pll()'s arithmetic for every fractional PLL. Deciding which of .rate and
+#                                  .kdiv is wrong is a clock-semantics change, not a build fix. The literal 50412
+#                                  is left in the source on purpose so the conflict stays greppable. Tracked as a
+#                                  port-time decision.
+#  -Wnull-dereference             drivers/staging/samsung/sec_debug_test.c:184 and :318 are the simulate_KP()
+#                                  and simulate_DABRT() crash simulators. Both store to a literal 0x0 on purpose
+#                                  -- each line is annotated "SVACE: intended" -- because the entire purpose of
+#                                  the function is to fault and hand control to the sec_debug crash handler. A
+#                                  NULL check would delete the feature, and a third probe in the same file
+#                                  (simulate_PABRT calls a null function pointer) is not flagged at all. The
+#                                  hazard clang names is real though: a non-volatile store to NULL may be
+#                                  optimised away at -O2, which would quietly disable these test hooks. Left
+#                                  untouched in a build fix.
+#  -Wtautological-overlap-compare bcmdhd_100_15/wl_android.c:8981 guards wl_android_set_adps_mode() with
+#                                  "(adps_mode < 0) && (1 < adps_mode)", which can never hold, so the ADPS mode
+#                                  argument is validated nowhere. The '&&' should be '||' -- 0 and 1 are the only
+#                                  valid modes and the branch logs "Invalid value" -- but that is a behaviour
+#                                  change: today any int from bcm_atoi() is forwarded to dhd_enable_adps(), whose
+#                                  parameter is a uint8 and is silently truncated. Making it '||' starts
+#                                  rejecting out-of-range values, so it needs deliberate review rather than
+#                                  riding along in a build fix. Tracked as a port-time decision.
+#  -Wunused-const-variable        The two hits are pkt_cnt_msg (dhd_linux_pktdump.c:163) and dhcp_types_stat
+#                                  (dhd_linux_pktdump.c:928). Both are real static const tables with real users,
+#                                  but their only references go through debug macros that expand to nothing in
+#                                  this configuration: pkt_cnt_msg is used solely inside DHD_PKTDUMP(), i.e.
+#                                  DHD_ERROR(), which sits under #if defined(DHD_DEBUG), and dhcp_types_stat
+#                                  solely inside DHD_STATLOG_DATA(), which degrades to
+#                                  "do { BCM_REFERENCE(cond); } while (0)" and never mentions its 'stat'
+#                                  argument. Neither table is inside an #ifdef of its own, so both have to
+#                                  survive for the configurations that do enable those paths -- deleting them
+#                                  would break DHD_DEBUG and DHD_STATUS_LOGGING builds. These are the only two
+#                                  such symbols in this build.
+KBUILD_CFLAGS   += -Wno-sizeof-pointer-div -Wno-constant-conversion \
+		   -Wno-null-dereference -Wno-tautological-overlap-compare \
+		   -Wno-unused-const-variable
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
