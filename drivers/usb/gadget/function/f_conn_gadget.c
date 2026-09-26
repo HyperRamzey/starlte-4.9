@@ -62,6 +62,19 @@
 
 /* platform specific definitions */
 /* ex) #define __ANDROID__ */
+/* That is not an example, it is the requirement. Every CONN_GADGET_IOCTL_* number
+ * in f_conn_gadget.ioctl.h lives inside "#if defined(__ANDROID__) ||
+ * defined(__TIZEN__)", so it exists only when the toolchain declares this an
+ * Android build. aarch64-linux-android-gcc 4.9, which this tree was validated
+ * against, predefines __ANDROID__ in its own specs; a stock upstream clang does
+ * not, so the block collapses and every use below becomes an undeclared
+ * identifier. Supply the precondition the original toolchain gave us here, in
+ * this one file, rather than adding -D__ANDROID__ tree-wide where it would also
+ * switch on unrelated code paths.
+ */
+#ifndef __ANDROID__
+#define __ANDROID__
+#endif
 
 /* platform specific pre-processing */
 #define CONN_GADGET_SHORTNAME "android_ssusbcon"

@@ -49,6 +49,11 @@ typedef struct _rt_iva_entry_t {
 } rt_iva_entry_t, *rt_iva_entry;
 
 /* IVA RT Table Header: NOTICE - do not use the pointer inside */
+/* The pointer typedef is deliberately not repeated here. iva_rt_table.h already
+ * declares it as "struct _rt_iva_table_t *" and this file includes that header,
+ * so the declaration below was a duplicate of an identical typedef. Repeating a
+ * typedef is legal only from C11 and the kernel is built as gnu89, so clang
+ * rejects it under -Wtypedef-redefinition. */
 typedef struct _rt_iva_table_t {
 	uint32_t	entries;
 	uint32_t	table_id;
@@ -56,7 +61,7 @@ typedef struct _rt_iva_table_t {
 	uint8_t 	is_updated;
 	uint8_t		empty;
 	uint32_t	reserved;
-} rt_iva_table_t, *rt_iva_table;
+} rt_iva_table_t;
 
 static inline rt_iva_entry_t *rt_iva_get_first_iva_entry(const rt_iva_table_t *iva_table)
 {

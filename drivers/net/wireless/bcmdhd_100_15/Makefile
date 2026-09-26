@@ -1499,7 +1499,18 @@ EXTRA_CFLAGS += $(call cc-option, -Wmaybe-uninitialized)
 # it would start rejecting arguments that dhd_enable_adps() currently accepts
 # (it truncates to uint8), which is a behaviour change, so it is left alone and
 # tracked as a port-time decision rather than fixed in a build commit.
-EXTRA_CFLAGS += -Wno-tautological-overlap-compare
+# -Wno-unused-const-variable: dhd_linux_pktdump.c has two static const tables,
+# pkt_cnt_msg (:163) and dhcp_types_stat (:928), whose only references go through
+# debug macros. pkt_cnt_msg is read solely inside DHD_PKTDUMP(), which is
+# DHD_ERROR() in this file (:46) and whose use site (:427) sits inside
+# #ifdef DHD_PKTDUMP_ROAM; dhcp_types_stat is read solely inside
+# DHD_STATLOG_DATA(), which without DHD_STATUS_LOGGING degrades to
+# "do { BCM_REFERENCE(cond); } while (0)" and never mentions its 'stat'
+# argument. Neither table has an #ifdef of its own, so both must survive for the
+# configurations that do compile those paths -- deleting them would break
+# DHD_PKTDUMP_ROAM and DHD_STATUS_LOGGING builds. Suppressed, not deleted, for
+# the same reason as the top-level -Wno-unused-const-variable.
+EXTRA_CFLAGS += -Wno-tautological-overlap-compare -Wno-unused-const-variable
 KBUILD_CFLAGS += -I$(LINUXDIR)/include -I$(CURDIR)
 
 DHDOFILES := dhd_pno.o dhd_common.o dhd_ip.o dhd_custom_gpio.o dhd_custom_sec.o \

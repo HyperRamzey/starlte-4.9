@@ -529,6 +529,24 @@ KBUILD_CFLAGS   += -Wno-switch-bool
 KBUILD_CFLAGS   += -Wno-sizeof-pointer-div -Wno-constant-conversion \
 		   -Wno-null-dereference -Wno-tautological-overlap-compare \
 		   -Wno-unused-const-variable
+#  -Wliteral-conversion      decon_clocks_table in
+#      drivers/video/fbdev/exynos/dpu_9810/decon_reg.c:2329 holds MHz rates, and two of its
+#      rows are written as decimals inside an "unsigned long" table:
+#          {41.7, 137.5, 400, 66, 62.5, 1440 * 2560, MIC_COMP_RATIO_1_3, 0}
+#          {  141, 137.5, 400, 66,   141, 1440 * 2560, MIC_COMP_BYPASS,     0}
+#      The element type is integral, so 41.7, 137.5 and 62.5 have always been
+#      emitted as 41, 137 and 62 -- by every compiler, GCC included, for as long as
+#      this table has existed. The truncation is therefore the long-standing
+#      behaviour and not something clang introduced. The A30s sibling of this very
+#      driver in the 4.4 tree (dpu_7885/decon_reg.c:2433) already carries the same
+#      three rates as the integers 41, 137 and 62, which confirms truncation is
+#      what these values have always meant rather than a rounded figure being
+#      wanted. Rounding them up instead would change the clock values programmed
+#      into the panel, and rewriting the literals is display-timing data that
+#      deserves review rather than riding along in a build fix, so the decimals are
+#      left in the source on purpose to keep the conflict greppable. Tracked as a
+#      port-time decision.
+KBUILD_CFLAGS   += -Wno-literal-conversion
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -1091,6 +1109,22 @@ KBUILD_ARFLAGS := $(call ar-option,D)
 include scripts/Makefile.kasan
 include scripts/Makefile.extrawarn
 include scripts/Makefile.ubsan
+
+# This block is deliberately placed at the end of the flag assignments rather
+# than alongside the other clang-24 suppressions above. -Wframe-larger-than is
+# set further down this file (CONFIG_FRAME_WARN, 4096) and clang honours the last
+# flag it is given, so a -Wno-frame-larger-than written into the earlier block
+# would be silently overridden. Do not move this up.
+#  -Wframe-larger-than  exynos-flexpmu-dbg.c:334, exynos_flexpmu_dbg_read() puts
+#      "char buf[BUF_SIZE]" (BUF_SIZE = BUF_MAX_LINE 100 * BUF_LINE_SIZE 30) on
+#      the stack; with the flexpmu_debugfs_read_fptr[] callee inlined the frame
+#      reaches 6688 bytes, over the 4096 limit this tree asks for. It is a debugfs
+#      read handler whose whole job is to format that buffer and hand it to
+#      simple_read_from_buffer(), so shrinking the buffer would truncate the
+#      debug output. This is the only frame in the tree over the limit. The check
+#      is now off tree-wide, which is the cost of not being able to scope a
+#      per-directory ccflags-y from here; the specific frame stays documented.
+KBUILD_CFLAGS += -Wno-frame-larger-than
 
 # Add any arch overrides and user supplied CPPFLAGS, AFLAGS and CFLAGS as the
 # last assignments
