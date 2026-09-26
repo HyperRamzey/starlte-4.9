@@ -118,3 +118,6 @@ all.config
 
 # fetched Android config fragments
 kernel/configs/android-*.cfg
+
+# python bytecode from the FIPS integrity scripts
+__pycache__/
