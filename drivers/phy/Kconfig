@@ -72,6 +72,29 @@ config PHY_DM816X_USB
 	help
 	  Enable this for dm816x USB to work.
 
+config PHY_EXYNOS_MIPI
+	tristate "Samsung EXYNOS SoC MIPI CSI/DSIM DPHY driver"
+	depends on HAS_IOMEM
+	depends on OF
+	depends on SOC_EXYNOS7885
+	select GENERIC_PHY
+	select MFD_SYSCON
+	help
+	  Support for the MIPI CSI (CSIS) and MIPI DSI DPHY that Samsung
+	  ships on the Exynos7885. The FIMC-IS camera receiver chain and the
+	  DSIM/DSI display controller both take a PHY from this driver.
+
+	  This is the 7885-era DPHY. It claims the DT compatibles
+	  samsung,mipi-phy-{dsim,csis,m4,m2,m1,s4,s2,s1}; on a real Exynos7885
+	  only samsung,mipi-phy-dsim, samsung,mipi-phy-csis and
+	  samsung,mipi-phy-s4 actually occur (4x nodes), the rest are
+	  inherited but never matched.
+
+	  The Exynos9810 DPHY is a different piece of IP and is driven by
+	  PHY_EXYNOS9810_MIPI, which claims samsung,mipi-phy-m4s4-top,
+	  -m4s4-mod and -m1s2s2. The two are not interchangeable; enabling
+	  both is harmless but pointless on a 7885.
+
 config PHY_EXYNOS_MIPI_VIDEO
 	tristate "S5P/EXYNOS SoC series MIPI CSI-2/DSI PHY driver"
 	depends on HAS_IOMEM
