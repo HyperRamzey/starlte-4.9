@@ -194,6 +194,25 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_USB_HC,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 
+	/* POWER_SUPPLY_PROP_VBUS, restored from the 4.4 tree (4.4 ordinal
+	 * 103, immediately inside the enum ahead of POWER_SUPPLY_PROP_MAX=107
+	 * there). It must sit BEFORE the sentinel or it is not a real
+	 * property: past the sentinel it would land in the
+	 * POWER_SUPPLY_EXT_PROP_* range and alias
+	 * POWER_SUPPLY_EXT_PROP_CHECK_SLAVE_I2C. Directly before the
+	 * sentinel is the minimal move -- no existing POWER_SUPPLY_PROP_*
+	 * renumbers, only the two sentinels advance (PROP_MAX 84 -> 85,
+	 * EXT_PROP_MAX 340 -> 341). Every POWER_SUPPLY_EXT_PROP_* in the
+	 * tree is written as POWER_SUPPLY_PROP_MAX + N, in
+	 * drivers/battery_v2/include/sec_charging_common.h and
+	 * drivers/power/s2mu106_power_compat.h, so they all shift together
+	 * and stay self-consistent. Sitting after
+	 * POWER_SUPPLY_PROP_MODEL_NAME is safe: the >= MODEL_NAME branch of
+	 * power_supply_show_property() that prints strval is unreachable,
+	 * because power_supply_attrs[] stops at
+	 * POWER_SUPPLY_PROP_TIME_TO_FULL_AVG (ordinal 69) while MODEL_NAME
+	 * is 83. */
+	POWER_SUPPLY_PROP_VBUS,
 	POWER_SUPPLY_PROP_MAX,
 	POWER_SUPPLY_EXT_PROP_MAX = POWER_SUPPLY_PROP_MAX + 256,
 };
