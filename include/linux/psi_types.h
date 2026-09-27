@@ -2,12 +2,20 @@
 #define _LINUX_PSI_TYPES_H
 
 #include <linux/kthread.h>
+#include <linux/workqueue.h>
 #include <linux/seqlock.h>
 #include <linux/types.h>
 #include <linux/kref.h>
 #include <linux/wait.h>
 
 #ifdef CONFIG_PSI
+
+/*
+ * kthread.h can be mid-parse when this header is reached through
+ * cgroup-defs.h, so the one kthread type still pointed at below is
+ * forward declared rather than relied upon being complete.
+ */
+struct kthread_worker;
 
 /* Tracked task states */
 enum psi_task_count {
@@ -147,7 +155,7 @@ struct psi_group {
 	/* Monitor work control */
 	atomic_t poll_scheduled;
 	struct kthread_worker __rcu *poll_kworker;
-	struct kthread_delayed_work poll_work;
+	struct delayed_work poll_work;
 
 	/* Protects data used by the monitor */
 	struct mutex trigger_lock;

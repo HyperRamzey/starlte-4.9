@@ -1099,7 +1099,6 @@ static inline void sched_ttwu_pending(void) { }
 
 #endif /* CONFIG_SMP */
 
-#include "stats.h"
 #include "auto_group.h"
 
 #ifdef CONFIG_CGROUP_SCHED
@@ -1877,6 +1876,13 @@ task_rq_unlock(struct rq *rq, struct task_struct *p, struct rq_flags *rf)
 	raw_spin_unlock(&rq->lock);
 	raw_spin_unlock_irqrestore(&p->pi_lock, rf->flags);
 }
+
+/*
+ * Must be included after the runqueue lock helpers above: stats.h uses
+ * struct rq_flags, __task_rq_lock() and __task_rq_unlock(), none of
+ * which are declared yet at the old position (line ~1102).
+ */
+#include "stats.h"
 
 extern struct rq *lock_rq_of(struct task_struct *p, struct rq_flags *flags);
 extern void unlock_rq_of(struct rq *rq, struct task_struct *p, struct rq_flags *flags);

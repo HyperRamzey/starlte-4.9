@@ -1765,6 +1765,13 @@ struct task_struct {
 	/* unserialized, strictly 'current' */
 	unsigned in_execve:1; /* bit to tell LSMs we're in execve */
 	unsigned in_iowait:1;
+#ifdef CONFIG_PSI
+	/* set when the task is migrated during a wakeup so that
+	 * psi_enqueue() requeues instead of clearing the sleep-persistent
+	 * states; see psi_ttwu_dequeue() in kernel/sched/stats.h
+	 */
+	unsigned sched_psi_wake_requeue:1;
+#endif
 #if !defined(TIF_RESTORE_SIGMASK)
 	unsigned restore_sigmask:1;
 #endif

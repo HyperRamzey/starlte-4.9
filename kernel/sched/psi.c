@@ -549,8 +549,8 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 
 /*
  * Schedule polling if it's not already scheduled. It's safe to call even from
- * hotpath because even though kthread_queue_delayed_work takes worker->lock
- * spinlock that spinlock is never contended due to poll_scheduled atomic
+ * hotpath because even though schedule_delayed_work takes the workqueue
+ * pool lock that lock is never contended due to poll_scheduled atomic
  * preventing such competition.
  */
 static void psi_schedule_poll_work(struct psi_group *group, unsigned long delay)
@@ -569,21 +569,21 @@ static void psi_schedule_poll_work(struct psi_group *group, unsigned long delay)
 	 * psi_task_change (hotpath) which can't use locks
 	 */
 	if (likely(kworker))
-		kthread_queue_delayed_work(kworker, &group->poll_work, delay);
+		schedule_delayed_work(&group->poll_work, delay);
 	else
 		atomic_set(&group->poll_scheduled, 0);
 
 	rcu_read_unlock();
 }
 
-static void psi_poll_work(struct kthread_work *work)
+static void psi_poll_work(struct work_struct *work)
 {
-	struct kthread_delayed_work *dwork;
+	struct delayed_work *dwork;
 	struct psi_group *group;
 	u32 changed_states;
 	u64 now;
 
-	dwork = container_of(work, struct kthread_delayed_work, work);
+	dwork = to_delayed_work(work);
 	group = container_of(dwork, struct psi_group, poll_work);
 
 	atomic_set(&group->poll_scheduled, 0);
@@ -1063,8 +1063,7 @@ struct psi_trigger *psi_trigger_create(struct psi_group *group,
 			return ERR_CAST(kworker);
 		}
 		sched_setscheduler_nocheck(kworker->task, SCHED_FIFO, &param);
-		kthread_init_delayed_work(&group->poll_work,
-				psi_poll_work);
+		INIT_DELAYED_WORK(&group->poll_work, psi_poll_work);
 		rcu_assign_pointer(group->poll_kworker, kworker);
 	}
 
@@ -1138,7 +1137,7 @@ static void psi_trigger_destroy(struct kref *ref)
 		 * But it might have been already scheduled before
 		 * that - deschedule it cleanly before destroying it.
 		 */
-		kthread_cancel_delayed_work_sync(&group->poll_work);
+		cancel_delayed_work_sync(&group->poll_work);
 		atomic_set(&group->poll_scheduled, 0);
 
 		kthread_destroy_worker(kworker_to_destroy);
