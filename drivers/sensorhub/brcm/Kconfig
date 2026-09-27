@@ -1,3 +1,100 @@
+# PORT NOTE (exynos7885 / A30s, 2026-09-28).  Comments only -- every config
+# stanza below is byte-for-byte unchanged, and no build behaviour is altered.
+#
+# ==========================================================================
+# THIS IS THE 9810 BROADCOM BBD/SSP SENSOR HUB.  IT IS NOT A30s HARDWARE.
+# The A30s has no SSP coprocessor; its sensors are plain I2C parts.  Stock
+# A307FN config agrees: "# CONFIG_SENSORS_SSP is not set" and every
+# CONFIG_SENSORS_SSP_* is "is not set".  The 4.4 A30s donor's own
+# drivers/sensorhub/ holds only stm32/ and stm_v2/ (an STM32F410 hub), which
+# stock also leaves unset.  The A30s sensor stack that IS needed now lives in
+# drivers/sensors/ and is gated by different symbols (CONFIG_SENSORS,
+# CONFIG_SENSORS_CORE, CONFIG_SENSORS_LSM6DSL, ...).  Do not confuse the two.
+#
+# --------------------------------------------------------------------------
+# 1. HARD LINK FAILURE ALREADY PROVEN -- sensors_core.o
+# --------------------------------------------------------------------------
+# drivers/sensorhub/brcm/Makefile:8   obj-$(CONFIG_SENSORS_SYSFS) += sensors_core.o
+# drivers/sensors/Makefile:13         obj-$(CONFIG_SENSORS_CORE)  += sensors_core.o
+#
+# Two DIFFERENT symbols gate two objects that define the SAME seven globals,
+# with DIFFERENT signatures, and both link built-in into vmlinux:
+#
+#   symbol                 sensorhub/brcm/sensors_core.c   drivers/sensors/sensors_core.c
+#   ---------------------- ------------------------------- ---------------------------------
+#   sensors_class          :15  struct class *              :29  struct class *
+#   sensors_event_class    :17  struct class *              :30  struct class *
+#   sensors_create_symlink :35  (struct input_dev *)       :139 (struct kobject *, const char *)
+#   sensors_remove_symlink :56  (struct input_dev *)       :157 (struct kobject *, const char *)
+#   sensors_register       :70  (struct device *, ...)     :236 (struct device **, ...)
+#   sensors_unregister     :96  (struct device * const,..) :260 (struct device *, ...)
+#   destroy_sensor_class   :106                           :269
+#
+# Both built-in = "multiple definition of ..." at link.  The sensorhub copy
+# additionally EXPORT_SYMBOL_GPL's all seven; the ported copy exports only
+# sensordump_*.  Resolution: keep CONFIG_SENSORS_CORE=y, clear
+# CONFIG_SENSORS_SYSFS.
+#
+# --------------------------------------------------------------------------
+# 2. BCM_GPS_SPI_DRIVER HERE IS 9810 HARDWARE AND IS NOT LEGITIMATE FOR THE A30s
+# --------------------------------------------------------------------------
+# It is defined at bbdpl/Kconfig:18, inside a choice that depends on
+# SENSORS_SSP_BBD, and it builds bbdpl/bcm_gps_{spi,regs,mem}.o, which are
+# reachable ONLY through drivers/sensorhub/Makefile:
+#       obj-$(CONFIG_SENSORS_SSP_BBD) += bbdpl/
+# So clearing CONFIG_SENSORS_SSP_BBD necessarily clears BCM_GPS_SPI_DRIVER.
+# That coupling is correct, not a casualty -- see the evidence:
+#   - Stock config sets NO Broadcom GPS symbol at all: GPS_BCMxxxxx,
+#     GPS_BCM4752, GPS_BCM47521, GPS_BCM4753, GPS_BCM47531, GPS_BCM4773 are
+#     ALL "is not set".  BCM_GPS_SPI_DRIVER does not appear in stock either.
+#   - The real decompiled stock DT carries the A30s GNSS as
+#       gnss_pdata { compatible = "samsung,gnss_shdmem_if";
+#                    shmem,name = "KEPLER";  shmem,boot_without_mbox = <0x01>;
+#                    mbox_info = <&mailbox_gnss>;
+#                    mbx,int_ap2gnss_bcmd / mbx,reg_bcmd_ctrl ... }
+#     i.e. a shared-memory + MAILBOX transport to the modem, matching stock's
+#     CONFIG_GNSS_SHMEM_IF=y.  It is NOT an SPI-attached chip behind a BBD
+#     hub, so bcm_gps_spi.o is architecturally the wrong shape for this board.
+#   - The bootarg "bcm_setup=0xffffff80f8e00000" is NOT evidence for this
+#     symbol.  No driver in either the 4.4 donor or this tree parses the
+#     "bcm_setup" kernel parameter (the only bcm_setup hits are the unrelated
+#     static bcm_setup() in drivers/bluetooth/hci_bcm.c), and the identical
+#     bootarg string also appears in the 9810 DTS at
+#     exynos9810-starlte_common.dtsi and exynos9810-star2lte_common.dtsi.
+#     It is Samsung 4.9 lineage boilerplate inherited by the A30s dts.
+#   - The 4.4 A30s donor's own GNSS is a different driver in a different tree:
+#     drivers/gps/sec_gps_bcm4753.c, gated by CONFIG_GPS_BCM4753 in
+#     drivers/gps/Kconfig.  Note drivers/gps/ is NOT gated by sensorhub and is
+#     NOT part of this change; the 9810-only GPS_BCMxxxxx / GPS_BCM47531 /
+#     GPS_BCM4773 carry-over in the A30s defconfig is reported for the
+#     defconfig owner to clear separately.
+#
+# --------------------------------------------------------------------------
+# 3. HOW THIS WHOLE DIRECTORY IS REACHED
+# --------------------------------------------------------------------------
+#   drivers/Kconfig:221            source "drivers/sensorhub/brcm/Kconfig"
+#   drivers/Makefile:191           obj-$(CONFIG_SENSORS_SSP) += sensorhub/
+#   drivers/sensorhub/Makefile     obj-$(CONFIG_SENSORS_SSP_BBD) += brcm/
+#
+# So CONFIG_SENSORS_SSP (master, via drivers/Makefile) plus
+# CONFIG_SENSORS_SSP_BBD (brcm/ and bbdpl/) plus CONFIG_SENSORS_SYSFS
+# (sensors_core.o) all off == no object in drivers/sensorhub/ is built.
+#
+# --------------------------------------------------------------------------
+# 4. WHY THIS DIRECTORY IS NOT DELETED
+# --------------------------------------------------------------------------
+# drivers/Kconfig:221 unconditionally sources this exact file.  A Kconfig
+# "source" of a missing file is a hard parse error at make olddefconfig,
+# regardless of any symbol value, and drivers/Kconfig is NOT owned by this
+# change.  drivers/Makefile:191 has the same problem.  Unselecting removes
+# every object with zero code risk and is fully reversible; deleting would
+# require coordinated edits outside this directory's ownership.
+#
+# Also note SENSORS_SSP_THERMISTOR (factory/thermistor.o, here) is a
+# DIFFERENT symbol from CONFIG_SENSORS_SEC_THERMISTOR in drivers/hwmon/.
+# The latter is stock-correct (=y) and must stay y.  Do not merge the two.
+#
+
 #
 # sensor drivers configuration
 #

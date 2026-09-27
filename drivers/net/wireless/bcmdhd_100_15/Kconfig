@@ -1,3 +1,67 @@
+#
+# PORT NOTE (exynos7885 / A30s, 2026-09-28).  Comments only -- every config
+# stanza below is byte-for-byte unchanged, and no build behaviour is altered.
+#
+# THE A30s HAS NO BROADCOM WIFI.  This directory is 9810 carry-over and is not
+# built.  Three independent pieces of evidence:
+#
+#   1. Stock A307FN config (stockfw/stock_kernel/stock_kernel.config) contains
+#      ZERO bcmdhd/BCMDHD symbols, and explicitly sets
+#      "# CONFIG_BRCMFMAC is not set" and "# CONFIG_BCM7XXX_PHY is not set".
+#      The real stock config names the WiFi vendor: CONFIG_SCSC_CORE=y,
+#      CONFIG_SCSC_WLBTD=y, CONFIG_SCSC_PLATFORM=y.
+#   2. The real decompiled stock DT (port49_evidence/stockfw/dtb/dt_0.dts,
+#      dtbo_0..3.dts) has no bcmdhd / Broadcom WiFi node.  The only "bcm"
+#      strings in it are the GNSS mailbox properties, which are unrelated --
+#      see the GNSS note in drivers/sensorhub/brcm/Kconfig.
+#   3. The 4.4 A30s donor (kernel/samsung/exynos7885) has no bcmdhd at all;
+#      its only brcm80211 is the unrelated upstream Broadcom stack.
+#
+# THIS FILE IS CURRENTLY INERT -- IT IS NEVER SOURCED.  Read this before
+# "fixing" any symbol below:
+#
+#   drivers/net/wireless/Kconfig:24 sources ONLY
+#       source "drivers/net/wireless/bcmdhd_100_10/Kconfig"
+#   and a tree-wide grep for "bcmdhd_100_15/Kconfig" returns nothing.  So
+#   BROADCOM_WIFI, BCM4361, BCMDHD_* and every other symbol defined HERE are
+#   not defined in the build at all.  bcmdhd_100_10/Kconfig independently
+#   defines the same symbol names and is the copy that actually resolves the
+#   exynos7885-a30s_defconfig values.
+#
+# HOW THE SUBSYSTEM IS ACTUALLY GATED (the only thing that matters):
+#
+#   drivers/net/wireless/Makefile:41-47
+#       ifneq ($(CONFIG_BCM4361),)
+#       ... obj-$(CONFIG_BCM4361) += bcmdhd_100_10/  or  bcmdhd_100_15/
+#       (the 100_15 branch is selected when MAJOR_VERSION >= 10)
+#       and obj-$(CONFIG_SOC_EXYNOS9810) += bcmdhd_100_*/dhd_custom_*.o
+#
+#   CONFIG_BCM4361 is therefore the single master switch.  It is =y in the
+#   current exynos7885-a30s_defconfig, so bcmdhd IS being compiled today even
+#   though the hardware does not exist on this board.  Clearing CONFIG_BCM4361
+#   (plus the dependent BCMDHD_* / BROADCOM_* strings) in the defconfig is the
+#   whole fix.  CONFIG_SOC_EXYNOS9810 is already "# ... is not set" for the
+#   A30s, so the two dhd_custom_* lines are already inert.
+#
+# WHY THIS DIRECTORY IS NOT DELETED.  Deleting it is the bigger claim, and it
+# is not provably correct from inside this directory's ownership: it would
+# break drivers/net/wireless/Makefile:45-47, which references
+# bcmdhd_100_15/ and bcmdhd_100_15/dhd_custom_*.o and is NOT part of this
+# change.  Unselecting is the least destructive change that is provably right
+# and is fully reversible.  See the sensor-removal report for the full
+# reasoning.
+#
+# SECOND, INDEPENDENT REASON TO KEEP IT OFF: netdev ownership.  This driver
+# and SCSC both want the name wlan0 --
+#   - bcmdhd primary interface: dhd_linux.c:13505 dhd_ifname2idx(dhd, "wlan0")
+#   - SCSC primary interface:  drivers/net/wireless/scsc/netif.c:1357
+#                              slsi_netif_add_locked(sdev, "wlan%d", ...)
+# SCSC is the ported, device-verified A30s WiFi.  It must be the sole owner of
+# wlan0.  (For reference, SCSC's AP interface is CONFIG_SCSC_AP_INTERFACE_NAME,
+# default "wlan1" in this tree; stock sets it to "swlan0".  That is a separate
+# defconfig item, reported, not changed here.)
+#
+
 config BROADCOM_WIFI
 	bool "Broadcom WiFi Driver"
 	depends on WLAN && WLAN_VENDOR_BROADCOM
