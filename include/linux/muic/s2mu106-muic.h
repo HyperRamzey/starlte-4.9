@@ -1079,5 +1079,217 @@ int s2mu106_muic_set_otg_reg(struct s2mu106_muic_data *muic_data, bool on);
 #else
 int s2mu106_muic_get_otg_state(void);
 #endif
+/*
+ * DERP PORT NOTE (4.4 exynos7885 -> 4.9.219 starlte port), muic-core layer.
+ *
+ * The 4.9 base's include/linux/muic/muic.h is the max77705-generation header:
+ * it keeps only the function-pointer half of struct muic_platform_data and
+ * replaces every piece of per-chip MUIC state with a single
+ * "enum muic_op_mode opmode" plus a muic_interface_t reached through
+ * callbacks. The 4.4 Exynos7885 header instead carries the state inline
+ * (muic_if, drv_data, suspended, need_to_noti, attached_dev, vbvolt, adc,
+ * is_jig_on, is_otg_test, is_rustproof, is_usb_ready, is_factory_start,
+ * hv_state, ...).
+ *
+ * Measured coupling (see the subtask report):
+ *   - 82 distinct muic_if->/ccic->/pdata-> names are referenced by
+ *     drivers/muic/muic_manager.c + drivers/muic/muic_core.c.
+ *   - 71 of them already exist in the 4.9 include/linux/muic/muic_interface.h.
+ *   - 10 of the remaining 11 are members of struct muic_platform_data, i.e.
+ *     the whole incompatibility is concentrated in ONE struct.
+ *   - the 11th, muic_if->regmaccic, occurs only inside a /* FIXME *\/ comment.
+ *
+ * Everything below is therefore S2MU106-private: it is either a macro that
+ * never names a struct member, or a type/prototype used only by
+ *   drivers/muic/muic_manager.c
+ *   drivers/muic/muic_core.c
+ *   drivers/muic/s2mu106-muic.c
+ *   drivers/muic/s2mu106-muic-afc.c
+ * all four of which include this header. Nothing here is visible to
+ * max77705/max77854/tsu6721/sm5508 or drivers/muic/universal/, so the
+ * shared include/linux/muic/muic.h and muic_interface.h stay untouched.
+ *
+ * The one thing that genuinely cannot live here is the struct member list
+ * itself; that is emitted as a SHARED-HUNK against muic.h in the report.
+ */
+
+#ifndef MUIC_CORE_S2MU106_SHIM_H
+#define MUIC_CORE_S2MU106_SHIM_H
+
+#include <linux/muic/muic.h>
+#include <linux/muic/muic_notifier.h>
+#include <linux/ccic/pdic_notifier.h>
+
+/* 4.4 include/linux/muic/muic.h:28 */
+#ifndef MUIC_CORE
+#define MUIC_CORE "MUIC_CORE"
+#endif
+
+/* 4.4 include/linux/muic/muic.h:349 */
+#ifndef MUIC_IS_ATTACHED
+#define MUIC_IS_ATTACHED(dev) \
+	(((dev != ATTACHED_DEV_UNKNOWN_MUIC) && (dev != ATTACHED_DEV_NONE_MUIC)) ? (1) : (0))
+#endif
+
+/* 4.4 include/linux/muic/muic.h:323-347 */
+#ifndef MUIC_PDATA_VOID_FUNC
+#define MUIC_PDATA_VOID_FUNC(func, param) \
+{\
+	if (func)	\
+		func(param);	\
+	else	\
+		pr_err("[muic_core] func not defined %s\n", __func__);	\
+}
+#endif
+
+#ifndef MUIC_PDATA_FUNC
+#define MUIC_PDATA_FUNC(func, param, ret) \
+{\
+	*ret = -1;	\
+	if (func)	\
+		*ret = func(param);	\
+	else	\
+		pr_err("[muic_core] func not defined %s\n", __func__);	\
+}
+#endif
+
+#ifndef MUIC_PDATA_FUNC_MULTI_PARAM
+#define MUIC_PDATA_FUNC_MULTI_PARAM(func, param1, param2, ret) \
+{					\
+	*ret = -1;	\
+	if (func)	\
+		*ret = func(param1, param2);	\
+	else	\
+		pr_err("[muic_core] func not defined %s\n", __func__);	\
+}
+#endif
+
+/*
+ * 4.4 include/linux/muic/muic.h:426-434, #else arm. The 4.4 header had an
+ * #ifdef CONFIG_IFCONN_NOTIFIER arm first; the 4.9 tree has no
+ * include/linux/ifconn/ifconn_notifier.h at all, so only the arm that uses
+ * the in-tree notifier chains can be taken.
+ *
+ * NOTE the rename: 4.4 calls these muic_pdic_notifier_*, but the already
+ * ported 4.9 include/linux/ccic/pdic_notifier.h exports the S2M-prefixed
+ * spellings s2m_pdic_notifier_*. Using the 4.4 names here would be an
+ * implicit-declaration + link error.
+ */
+#ifndef MUIC_SEND_NOTI_ATTACH
+#define MUIC_SEND_NOTI_ATTACH(dev)	\
+		muic_notifier_attach_attached_dev(dev)
+#endif
+#ifndef MUIC_SEND_NOTI_DETACH
+#define MUIC_SEND_NOTI_DETACH(dev) \
+		muic_notifier_detach_attached_dev(dev)
+#endif
+#ifndef MUIC_SEND_NOTI_TO_CCIC_ATTACH
+#define MUIC_SEND_NOTI_TO_CCIC_ATTACH(dev) \
+		s2m_pdic_notifier_attach_attached_dev(dev)
+#endif
+#ifndef MUIC_SEND_NOTI_TO_CCIC_DETACH
+#define MUIC_SEND_NOTI_TO_CCIC_DETACH(dev) \
+		s2m_pdic_notifier_detach_attached_dev(dev)
+#endif
+
+/*
+ * 4.4 include/linux/muic/muic.h:221-248. These were gated on CONFIG_MUIC_HV
+ * there. They are declared unconditionally here so that the S2MU106
+ * translation units can name the values regardless of how the Kconfig
+ * symbol ends up ordered; the values themselves are the AFC protocol state
+ * machine's and must not be renumbered.
+ *
+ * The field muic_pdata->hv_state is declared "int" by the muic.h SHARED-HUNK
+ * (so muic.h does not have to see these typedefs). Every access goes through
+ * the muic_core_hv_{set,get}_* helpers in drivers/muic/muic_core.c, which
+ * cast explicitly, so the field's declared type is not load-bearing.
+ */
+typedef enum {
+	HV_STATE_INVALID = -1,
+	HV_STATE_IDLE = 0,
+	HV_STATE_DCP_CHARGER = 1,
+	HV_STATE_FAST_CHARGE_ADAPTOR = 2,
+	HV_STATE_FAST_CHARGE_COMMUNICATION = 3,
+	HV_STATE_AFC_5V_CHARGER = 4,
+	HV_STATE_AFC_9V_CHARGER = 5,
+	HV_STATE_QC_CHARGER = 6,
+	HV_STATE_QC_5V_CHARGER = 7,
+	HV_STATE_QC_9V_CHARGER = 8,
+	HV_STATE_MAX_NUM = 9,
+} muic_hv_state_t;
+
+typedef enum {
+	HV_TRANS_INVALID = -1,
+	HV_TRANS_MUIC_DETACH = 0,
+	HV_TRANS_DCP_DETECTED = 1,
+	HV_TRANS_NO_RESPONSE = 2,
+	HV_TRANS_VDNMON_LOW = 3,
+	HV_TRANS_FAST_CHARGE_PING_RESPONSE = 4,
+	HV_TRANS_VBUS_BOOST = 5,
+	HV_TRANS_VBUS_REDUCE = 6,
+	HV_TRANS_MAX_NUM = 7,
+} muic_hv_transaction_t;
+
+/* 4.4 include/linux/muic/muic.h:352-355. Only muic_sysfs.c consumes it. */
+enum muic_param_en {
+	MUIC_DISABLE = 0,
+	MUIC_ENABLE
+};
+
+/*
+ * 4.4 include/linux/muic/muic.h:439-451. Declared here rather than in muic.h
+ * so the shared header needs no prototype block.
+ */
+struct muic_platform_data;
+int muic_core_handle_attach(struct muic_platform_data *muic_pdata,
+			muic_attached_dev_t new_dev, int adc, u8 vbvolt);
+int muic_core_handle_detach(struct muic_platform_data *muic_pdata);
+bool muic_core_get_ccic_cable_state(struct muic_platform_data *muic_pdata);
+struct muic_platform_data *muic_core_init(void *drv_data);
+void muic_core_exit(struct muic_platform_data *muic_pdata);
+int muic_core_hv_state_manager(struct muic_platform_data *muic_pdata,
+		muic_hv_transaction_t trans);
+void muic_core_hv_init(struct muic_platform_data *muic_pdata);
+bool muic_core_hv_is_hv_dev(struct muic_platform_data *muic_pdata);
+
+/*
+ * 4.4 include/linux/muic/muic_sysfs.h declares muic_sysfs_init/_deinit, but
+ * the already-ported 4.9 include/linux/muic/muic_sysfs.h dropped them while
+ * keeping muic_device_create/_destroy. drivers/muic/s2mu106-muic.c calls
+ * both at lines 2922 / 3050 / 3076, so it is already broken without these.
+ * Duplicate identical prototypes are legal C, so emitting them here is safe
+ * even if the header later regains them. drivers/muic/muic_sysfs.c is NOT
+ * part of this subtask (blocked, see report), so nothing defines them yet.
+ */
+#if defined(CONFIG_MUIC_SYSFS)
+int muic_sysfs_init(struct muic_platform_data *muic_pdata);
+void muic_sysfs_deinit(struct muic_platform_data *muic_pdata);
+#endif
+
+/*
+ * 4.4 exported these without prototypes anywhere outside their own .c files.
+ * The 4.9 tree builds with -Wmissing-prototypes (see the FIPS anchor work in
+ * the 4.9 clang-24 campaign), so each non-static definition in
+ * drivers/muic/muic_core.c and drivers/muic/muic_manager.c needs one. The
+ * external linkage is kept exactly as 4.4 had it.
+ *
+ * muic_manager_init / _exit / _psy_init / _set_legacy_dev / _get_legacy_dev /
+ * _dcd_rescan / _handle_ccic_detach are NOT repeated here: the already-ported
+ * 4.9 include/linux/muic/muic_interface.h lines 347-353 already declare them.
+ */
+int muic_manager_is_ccic_supported_dev(muic_attached_dev_t new_dev);
+void muic_manager_handle_ccic_detach_always(struct muic_interface_t *muic_if);
+void muic_manager_handle_ccic_rid_open(struct muic_interface_t *muic_if);
+void muic_manager_init_dev_desc(struct muic_interface_t *muic_if);
+void muic_manager_register_notifier(struct muic_interface_t *muic_if);
+
+#if defined(CONFIG_MUIC_NOTIFIER)
+void muic_send_dock_intent(int type);
+#endif
+
+int muic_init_gpio_cb(void *data, int switch_sel);
+
+#endif /* MUIC_CORE_S2MU106_SHIM_H */
+
 #endif /* __S2MU106_MUIC_H__ */
 
