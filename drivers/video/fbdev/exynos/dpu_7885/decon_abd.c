@@ -855,8 +855,14 @@ static void decon_abd_print_udr(struct seq_file *m, struct abd_udr *trace)
 				continue;
 
 #if defined(CONFIG_SOC_EXYNOS7885)
+			/* PORT-NOTE(dpu_7885): the second %d used to be
+			 * bts_info->dpp[idx].idma_type, which dpu_bts_calc_bw()
+			 * always stored as the slot index - so it is exactly idx.
+			 * The member was renamed to `rotation` in 4.9; see the
+			 * note in bts.c. The #else branch below already used the
+			 * new name, which is why only this arm failed. */
 			abd_printf(m, "DPP[%d] (%d) b(%d) s(%4d %4d) d(%4d %4d %4d %4d)\n",
-				idx, bts_info->dpp[idx].idma_type, bts_info->dpp[idx].bpp,
+				idx, idx, bts_info->dpp[idx].bpp,
 				bts_info->dpp[idx].src_w, bts_info->dpp[idx].src_h,
 				bts_info->dpp[idx].dst.x1, bts_info->dpp[idx].dst.x2,
 				bts_info->dpp[idx].dst.y1, bts_info->dpp[idx].dst.y2);

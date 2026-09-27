@@ -111,9 +111,23 @@ void dpu_bts_calc_bw(struct decon_device *decon, struct decon_reg_data *regs)
 		if (config[i].state != DECON_WIN_STATE_BUFFER)
 			continue;
 
+		/*
+		 * PORT-NOTE(dpu_7885): 4.4 stored the DPP index a second time in
+		 * bts_info.dpp[idx].idma_type.  That field no longer exists: the
+		 * 4.9 include/soc/samsung/bts.h renamed the member of
+		 * struct bts_dpp_info from `unsigned int idma_type` to `bool
+		 * rotation` when the 9810 BTS replaced the 7885 one. The whole
+		 * 7885 block in bts.h is behind
+		 * `#if defined(CONFIG_EXYNOS7885_BTS) || defined(CONFIG_EXYNOS9810_BTS)`,
+		 * so with CONFIG_EXYNOS7885_BTS=y the struct is live and the
+		 * member is simply gone.
+		 * The store was write-only: neither drivers/bts/cal_bts7885.c
+		 * nor drivers/bts/bts-exynos7885.c reads either field, so it is
+		 * dropped rather than re-pointed at `rotation` (a bool would
+		 * truncate the index to 0/1).
+		 */
 		idx = config[i].idma_type;
 		bts_info.dpp[idx].used = true;
-		bts_info.dpp[idx].idma_type = idx;
 		bts_info.dpp[idx].bpp = dpu_get_bpp(config[i].format);
 		bts_info.dpp[idx].src_w = config[i].src.w;
 		bts_info.dpp[idx].src_h = config[i].src.h;
@@ -160,7 +174,7 @@ static void dpu_bts_log_info_output(struct decon_device *decon, struct decon_reg
 
 		idx = config[i].idma_type;
 		DPU_LOG_BTS("[%d] DPP[%d] (%d) (%4d %4d)\t(%4d %4d %4d %4d)\n",
-			i, bts_info->dpp[idx].idma_type, bts_info->dpp[idx].bpp,
+			i, idx, bts_info->dpp[idx].bpp,
 			bts_info->dpp[idx].src_w, bts_info->dpp[idx].src_h,
 			bts_info->dpp[idx].dst.x1, bts_info->dpp[idx].dst.y1,
 			bts_info->dpp[idx].dst.x2, bts_info->dpp[idx].dst.y2);

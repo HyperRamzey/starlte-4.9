@@ -542,8 +542,12 @@ static void dsim_bts_print_info(struct bts_decon_info *info)
 		if (!info->dpp[i].used)
 			continue;
 
+		/* PORT-NOTE(dpu_7885): the second %d used to be
+		 * info->dpp[i].idma_type, which dpu_bts_calc_bw() always stored
+		 * as the slot index itself - so it is exactly i. The member was
+		 * renamed to `rotation` in 4.9 (see the note in bts.c). */
 		dsim_info("\t\tDPP[%d] (%d) (%4d %4d) (%4d %4d %4d %4d)\n",
-				info->dpp[i].idma_type, info->dpp[i].bpp,
+				i, info->dpp[i].bpp,
 				info->dpp[i].src_w, info->dpp[i].src_h,
 				info->dpp[i].dst.x1, info->dpp[i].dst.x2,
 				info->dpp[i].dst.y1, info->dpp[i].dst.y2);
