@@ -53,3 +53,35 @@ config SENSORS_ET5XX
 	  If you say yes here you get support for ET5XX sensor.
 	  ET5XX is the touch type fingerprint sensor.
 	  ET5XX module can support WOF mode.
+
+config SENSORS_ET7XX
+	stristate "ET7XX fingerprint sensor support"
+	default n
+	help
+	  If you say yes here you get support for Egistec's
+	  fingerprint sensor ET7XX.  This is the symbol name the stock
+	  exynos7885 A30s kernel config uses, so it must stay spelled
+	  exactly this way or the stock config stops resolving.
+	
+	  ET7XX is Egistec's optical under-display sensor family
+	  (ET711A / ET713A / ET715).  The driver binds to the DT
+	  compatible string "etspi,et7xx" and probes as an SPI device.
+	  The A30s carries an ET715.
+	
+	  This symbol is MUTUALLY EXCLUSIVE with SENSORS_ET5XX above.
+	  Both build objects that export the SAME global symbols --
+	  etspi_Interrupt_Init, etspi_Interrupt_Free, etspi_Interrupt_Abort,
+	  etspi_fps_interrupt_poll, etspi_platformInit, etspi_platformUninit
+	  and fpsensor_goto_suspend -- and both link built-in into vmlinux,
+	  so enabling the two together is a duplicate-definition link
+	  failure, not a runtime conflict.  There is deliberately no
+	  depends on / select between them: kconfig would then silently drop
+	  one of the two symbols, which is the failure mode that hides
+	  itself.  Keep the pairing explicit in the defconfig instead.  The
+	  correct pairing for this board, and the one the stock config uses,
+	  is SENSORS_ET7XX=y with SENSORS_ET5XX unset.
+	
+	  Coexists freely with SENSORS_VFS7XXX and SENSORS_VFS8XXX: those
+	  use a vfsspi_ symbol prefix and claim no overlapping global.
+	  VFS7XXX has no object at all in this tree, and VFS8XXX is the
+	  9810-era Namsan part, which is not what this die carries.
