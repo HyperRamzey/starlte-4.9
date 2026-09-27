@@ -304,6 +304,32 @@ config SND_SOC_SAMSUNG_AUDIO
 	help
 	  Say Y here to enable audio support for the Samsung Audio.
 
+# DEVIATION (port): the exynos7885 A30s audio stack.  4.4 had these in
+# sound/soc/samsung/Kconfig:362-373; 4.9 has no home for them, and
+# sound/soc/codecs/Kconfig is outside this port's ownership, so the codec's
+# SND_SOC_COD3035X home is declared here too.
+#
+# No 'depends on SOC_EXYNOS7885' on purpose: that symbol does not exist in
+# this tree yet (it arrives with the 7885 DTS wave), and a depends on an
+# undefined symbol would make these permanently unselectable.
+config SND_SOC_COD3035X
+	tristate
+	default y
+
+config SND_SOC_SAMSUNG_EXYNOS7885
+	tristate "Audio support on exynos7885"
+	select SND_SOC_SAMSUNG_ABOX
+	select SND_SOC_SAMSUNG_MAILBOX
+	# NOTE: deliberately does NOT select SND_SOC_SAMSUNG_DISPLAYPORT.  The A30s
+	# has no DisplayPort controller and dp_dma has no valid FIFO address there.
+
+config SND_SOC_SAMSUNG_EXYNOS7885_COD3035
+	tristate "S.LSI audio codec COD3035 support on exynos7885"
+	select SND_SOC_COD3035X
+
+config SND_SOC_SAMSUNG_EXYNOS7885_COD3035_MULTI
+	tristate "S.LSI audio codec COD3035 support on exynos7885 with multi codec"
+	select SND_SOC_COD3035X
 source "sound/soc/samsung/abox/Kconfig"
 source "sound/soc/samsung/vts/Kconfig"
 

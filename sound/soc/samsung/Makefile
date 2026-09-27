@@ -80,3 +80,4 @@ obj-$(CONFIG_SND_SOC_SAMSUNG_EXYNOS8895_COD3033) += exynos8895_sound.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_EXYNOS9810_MOON) += exynos9810_madera.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_STAR_ASHETON) += snd-soc-star-madera.o
 obj-$(CONFIG_SND_SOC_SAMSUNG_AUDIO) += snd-soc-sec-audio.o
+obj-$(CONFIG_SND_SOC_SAMSUNG_EXYNOS7885_COD3035) += cod3035x.o exynos7885_cod3035.o jack_cod3035_sysfs_cb.o
