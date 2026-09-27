@@ -22,7 +22,7 @@
 #define S2MU106_PMETER_H
 #include "../mfd/s2mu106.h"
 #include <linux/power_supply.h>
-#include <linux/battery/sec_charging_common.h>
+#include "../battery_v2/include/sec_charging_common.h"
 #include "s2mu106_power_compat.h"
 
 #define S2MU106_PM_VALUP1	0x03

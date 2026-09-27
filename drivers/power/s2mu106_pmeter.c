@@ -303,43 +303,59 @@ static int s2mu106_pm_get_property(struct power_supply *psy,
 		union power_supply_propval *val)
 {
 	struct s2mu106_pmeter_data *pmeter = power_supply_get_drvdata(psy);
+	enum power_supply_ext_property ext_psp =
+						(enum power_supply_ext_property)psp;
 
+	/*
+	 * The S2MU106 meter properties are members of
+	 * enum power_supply_ext_property, not enum power_supply_property, so they
+	 * cannot be case labels on a switch over psp. Two ranges are needed: the
+	 * shared window, and the 7885 private window, which deliberately sits
+	 * above POWER_SUPPLY_EXT_PROP_MAX so it cannot collide with it.
+	 */
 	switch (psp) {
-	case POWER_SUPPLY_PROP_VCHGIN:
-		val->intval = s2mu106_pm_get_vchgin(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VWCIN:
-		val->intval = s2mu106_pm_get_vwcin(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VBYP:
-		val->intval = s2mu106_pm_get_vbyp(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VSYS:
-		val->intval = s2mu106_pm_get_vsysa(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VBAT:
-		val->intval = s2mu106_pm_get_vbata(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VGPADC:
-		val->intval = s2mu106_pm_get_vgpadc(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VCC1:
-		val->intval = s2mu106_pm_get_vcc1(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_VCC2:
-		val->intval = s2mu106_pm_get_vcc2(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_ICHGIN:
-		val->intval = s2mu106_pm_get_ichgin(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_IWCIN:
-		val->intval = s2mu106_pm_get_iwcin(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_IOTG:
-		val->intval = s2mu106_pm_get_iotg(pmeter);
-		break;
-	case POWER_SUPPLY_PROP_ITX:
-		val->intval = s2mu106_pm_get_itx(pmeter);
+	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+		switch (ext_psp) {
+		case POWER_SUPPLY_PROP_VCHGIN:
+			val->intval = s2mu106_pm_get_vchgin(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VWCIN:
+			val->intval = s2mu106_pm_get_vwcin(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VBYP:
+			val->intval = s2mu106_pm_get_vbyp(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VSYS:
+			val->intval = s2mu106_pm_get_vsysa(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VBAT:
+			val->intval = s2mu106_pm_get_vbata(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VGPADC:
+			val->intval = s2mu106_pm_get_vgpadc(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VCC1:
+			val->intval = s2mu106_pm_get_vcc1(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_VCC2:
+			val->intval = s2mu106_pm_get_vcc2(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_ICHGIN:
+			val->intval = s2mu106_pm_get_ichgin(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_IWCIN:
+			val->intval = s2mu106_pm_get_iwcin(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_IOTG:
+			val->intval = s2mu106_pm_get_iotg(pmeter);
+			break;
+		case POWER_SUPPLY_PROP_ITX:
+			val->intval = s2mu106_pm_get_itx(pmeter);
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -352,16 +368,25 @@ static int s2mu106_pm_set_property(struct power_supply *psy,
 		const union power_supply_propval *val)
 {
 	struct s2mu106_pmeter_data *pmeter = power_supply_get_drvdata(psy);
+	enum power_supply_ext_property ext_psp =
+						(enum power_supply_ext_property)psp;
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_CO_ENABLE:
-		s2mu106_pm_enable(pmeter, CONTINUOUS_MODE, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_RR_ENABLE:
-		s2mu106_pm_enable(pmeter, REQUEST_RESPONSE_MODE, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_PM_FACTORY:
-		s2mu106_pm_factory(pmeter);
+	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+		switch (ext_psp) {
+		case POWER_SUPPLY_PROP_CO_ENABLE:
+			s2mu106_pm_enable(pmeter, CONTINUOUS_MODE, val->intval);
+			break;
+		case POWER_SUPPLY_PROP_RR_ENABLE:
+			s2mu106_pm_enable(pmeter, REQUEST_RESPONSE_MODE, val->intval);
+			break;
+		case POWER_SUPPLY_PROP_PM_FACTORY:
+			s2mu106_pm_factory(pmeter);
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;

@@ -26,7 +26,7 @@
 #endif
 
 #include <linux/wakelock.h>
-#include <linux/battery/sec_charging_common.h> 
+#include "../battery_v2/include/sec_charging_common.h" 
 #include "s2mu106_power_compat.h"
 
 /* Slave address should be shifted to the right 1bit.

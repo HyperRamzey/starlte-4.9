@@ -385,7 +385,7 @@ static int s2mu106_haptic_parse_dt(struct device *dev,
 	}
 	
 	ret = of_property_read_u32(np, "haptic,max_timeout", &temp);
-	if (IS_ERR_VALUE(ret)) {
+	if (ret < 0) {
 		pr_err("%s : error to get dt node max_timeout\n", __func__);
 	} else
 		pdata->max_timeout = (u16)temp;

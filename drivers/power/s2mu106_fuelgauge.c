@@ -1812,6 +1812,7 @@ static int s2mu106_fg_get_property(struct power_supply *psy,
 		val->intval = fuelgauge->pdata->capacity_full * fuelgauge->raw_capacity;
 		break;
 	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
 		switch (ext_psp) {
 		case POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY:
 			val->intval = calc_ttf_to_full_capacity(fuelgauge, val);
@@ -1887,6 +1888,7 @@ static int s2mu106_fg_set_property(struct power_supply *psy,
 			fuelgauge->topoff_current = val->intval;
 			break;
 		case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+		case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
 			switch (ext_psp) {
 			case POWER_SUPPLY_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING:
 				if ((val->intval == SEC_BAT_INBAT_FGSRC_SWITCHING_ON) ||

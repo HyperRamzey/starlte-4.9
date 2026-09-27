@@ -27,7 +27,8 @@
 #include <linux/muic/muic_notifier.h>
 #endif /* CONFIG_MUIC_NOTIFIER */
 
-#include <linux/battery/sec_charging_common.h>
+#include "../battery_v2/include/sec_charging_common.h"
+#include <linux/wakelock.h>	/* struct wake_lock, embedded by value below */
 #include "s2mu106_power_compat.h"
 
 /* define function if need */

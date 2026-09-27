@@ -47,90 +47,61 @@
 #define __LINUX_S2MU106_POWER_COMPAT_H
 
 #include <linux/power_supply.h>
+/*
+ * The canonical Samsung charging/extended-property header. It MUST be
+ * the battery_v2 copy: include/linux/battery/sec_charging_common.h is a
+ * byte-identical, same-include-guard, but STALE upstream duplicate that
+ * predates enum power_supply_ext_property, enum sec_battery_cable and
+ * enum sec_battery_inbat_fgsrc_switching. Including it yields a silently
+ * different set of declarations, so the include path is the defect.
+ */
+#include "../battery_v2/include/sec_charging_common.h"
 
 /*
- * The enumerators the ported S2MU106 drivers reference. Values are explicit
- * so this file cannot silently shift if the core enum grows; they all sit
- * above POWER_SUPPLY_PROP_MAX, i.e. inside the reserved
- * POWER_SUPPLY_EXT_PROP_* window that 4.9 already declares room for
- * (POWER_SUPPLY_EXT_PROP_MAX = POWER_SUPPLY_PROP_MAX + 256, 255 slots free).
+ * The 4.4 tree carried 19 extra POWER_SUPPLY_PROP_* enumerators (VCHGIN ..
+ * SOH) directly in enum power_supply_property; 4.9.219 has none of them.
+ * They are declared once, as POWER_SUPPLY_EXT_PROP_*, at the end of
+ * enum power_supply_ext_property in ../battery_v2/include/sec_charging_common.h,
+ * in a private window that starts ABOVE POWER_SUPPLY_EXT_PROP_MAX so it can
+ * neither collide with the shared 85..114 names nor fall inside the
+ * `case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:` ranges that
+ * every in-tree Samsung driver dispatches with.
  *
- * Group A reproduces the 19 Samsung properties that 4.4 carried in the core
- * enum. Group B reproduces the 8 Samsung EXT properties this stack uses.
+ * What is left here is only the SPELLING bridge: the ported sources use the
+ * 4.4 names POWER_SUPPLY_PROP_VCHGIN etc., so alias them rather than edit
+ * every call site. No POWER_SUPPLY_EXT_PROP_* name is defined here -- those
+ * are real enumerators, and a macro of the same name would be a
+ * self-referential define that also makes `#ifdef` lie.
  *
- * IMPORTANT -- PRE-EXISTING 4.9 TREE DEFECT, not caused by this port:
- * the 4.9 tree USES POWER_SUPPLY_EXT_PROP_* in five of Samsung's own
- * drivers (max77705_cc.c, max77705_pd.c, max77865_charger.c, mfc_charger.c,
- * da9155_charger.c) but defines the extended-property enum NOWHERE. Those
- * drivers cannot compile until the enum exists. If a future wave adds the
- * real Samsung extended enum to include/linux/power_supply.h, delete this
- * file, its #include lines, and fold the names in below into it.
+ * Dispatch a private property with both ranges:
+ *   case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+ *   case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+ *
+ * If a future wave folds the Samsung extended-property enum into
+ * include/linux/power_supply.h proper, delete this file and its #include
+ * lines: the POWER_SUPPLY_PROP_* spellings would then be plain enumerators
+ * and these aliases would become unnecessary.
  */
-enum s2mu106_ext_power_supply_property {
-	/* group A: 4.4 core-enum Samsung properties */
-	S2MU106_EXT_PROP_VCHGIN		= POWER_SUPPLY_PROP_MAX + 1,
-	S2MU106_EXT_PROP_VWCIN		= POWER_SUPPLY_PROP_MAX + 2,
-	S2MU106_EXT_PROP_VBYP		= POWER_SUPPLY_PROP_MAX + 3,
-	S2MU106_EXT_PROP_VSYS		= POWER_SUPPLY_PROP_MAX + 4,
-	S2MU106_EXT_PROP_VBAT		= POWER_SUPPLY_PROP_MAX + 5,
-	S2MU106_EXT_PROP_VGPADC		= POWER_SUPPLY_PROP_MAX + 6,
-	S2MU106_EXT_PROP_VCC1		= POWER_SUPPLY_PROP_MAX + 7,
-	S2MU106_EXT_PROP_VCC2		= POWER_SUPPLY_PROP_MAX + 8,
-	S2MU106_EXT_PROP_ICHGIN		= POWER_SUPPLY_PROP_MAX + 9,
-	S2MU106_EXT_PROP_IWCIN		= POWER_SUPPLY_PROP_MAX + 10,
-	S2MU106_EXT_PROP_IOTG		= POWER_SUPPLY_PROP_MAX + 11,
-	S2MU106_EXT_PROP_ITX		= POWER_SUPPLY_PROP_MAX + 12,
-	S2MU106_EXT_PROP_CO_ENABLE	= POWER_SUPPLY_PROP_MAX + 13,
-	S2MU106_EXT_PROP_RR_ENABLE	= POWER_SUPPLY_PROP_MAX + 14,
-	S2MU106_EXT_PROP_PM_FACTORY	= POWER_SUPPLY_PROP_MAX + 15,
-	S2MU106_EXT_PROP_FUELGAUGE_RESET	= POWER_SUPPLY_PROP_MAX + 16,
-	S2MU106_EXT_PROP_USBPD_RESET	= POWER_SUPPLY_PROP_MAX + 17,
-	S2MU106_EXT_PROP_FACTORY_MODE	= POWER_SUPPLY_PROP_MAX + 18,
-	S2MU106_EXT_PROP_SOH		= POWER_SUPPLY_PROP_MAX + 19,
-	/* group B: Samsung extended properties used by this stack */
-	S2MU106_EXT_PROP_AICL_CURRENT	= POWER_SUPPLY_PROP_MAX + 20,
-	S2MU106_EXT_PROP_CURRENT_MEASURE	= POWER_SUPPLY_PROP_MAX + 21,
-	S2MU106_EXT_PROP_FACTORY_VOLTAGE_REGULATION = POWER_SUPPLY_PROP_MAX + 22,
-	S2MU106_EXT_PROP_FUELGAUGE_FACTORY	= POWER_SUPPLY_PROP_MAX + 23,
-	S2MU106_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING = POWER_SUPPLY_PROP_MAX + 24,
-	S2MU106_EXT_PROP_TTF_FULL_CAPACITY	= POWER_SUPPLY_PROP_MAX + 25,
-	S2MU106_EXT_PROP_UPDATE_BATTERY_DATA	= POWER_SUPPLY_PROP_MAX + 26,
-	S2MU106_EXT_PROP_WIRELESS_TXMODE_DISCON	= POWER_SUPPLY_PROP_MAX + 27,
-};
-
 /* The ported sources use the 4.4 spelling, so alias rather than edit them. */
-#define POWER_SUPPLY_PROP_VCHGIN		S2MU106_EXT_PROP_VCHGIN
-#define POWER_SUPPLY_PROP_VWCIN		S2MU106_EXT_PROP_VWCIN
-#define POWER_SUPPLY_PROP_VBYP		S2MU106_EXT_PROP_VBYP
-#define POWER_SUPPLY_PROP_VSYS		S2MU106_EXT_PROP_VSYS
-#define POWER_SUPPLY_PROP_VBAT		S2MU106_EXT_PROP_VBAT
-#define POWER_SUPPLY_PROP_VGPADC		S2MU106_EXT_PROP_VGPADC
-#define POWER_SUPPLY_PROP_VCC1		S2MU106_EXT_PROP_VCC1
-#define POWER_SUPPLY_PROP_VCC2		S2MU106_EXT_PROP_VCC2
-#define POWER_SUPPLY_PROP_ICHGIN		S2MU106_EXT_PROP_ICHGIN
-#define POWER_SUPPLY_PROP_IWCIN		S2MU106_EXT_PROP_IWCIN
-#define POWER_SUPPLY_PROP_IOTG		S2MU106_EXT_PROP_IOTG
-#define POWER_SUPPLY_PROP_ITX		S2MU106_EXT_PROP_ITX
-#define POWER_SUPPLY_PROP_CO_ENABLE	S2MU106_EXT_PROP_CO_ENABLE
-#define POWER_SUPPLY_PROP_RR_ENABLE	S2MU106_EXT_PROP_RR_ENABLE
-#define POWER_SUPPLY_PROP_PM_FACTORY	S2MU106_EXT_PROP_PM_FACTORY
-#define POWER_SUPPLY_PROP_FUELGAUGE_RESET	S2MU106_EXT_PROP_FUELGAUGE_RESET
-#define POWER_SUPPLY_PROP_USBPD_RESET	S2MU106_EXT_PROP_USBPD_RESET
-#define POWER_SUPPLY_PROP_FACTORY_MODE	S2MU106_EXT_PROP_FACTORY_MODE
-#define POWER_SUPPLY_PROP_SOH		S2MU106_EXT_PROP_SOH
-
-/* group B keeps the 4.4 spelling the ported sources use. */
-#define POWER_SUPPLY_EXT_PROP_AICL_CURRENT		S2MU106_EXT_PROP_AICL_CURRENT
-#define POWER_SUPPLY_EXT_PROP_CURRENT_MEASURE	S2MU106_EXT_PROP_CURRENT_MEASURE
-#define POWER_SUPPLY_EXT_PROP_FACTORY_VOLTAGE_REGULATION \
-	S2MU106_EXT_PROP_FACTORY_VOLTAGE_REGULATION
-#define POWER_SUPPLY_EXT_PROP_FUELGAUGE_FACTORY	S2MU106_EXT_PROP_FUELGAUGE_FACTORY
-#define POWER_SUPPLY_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING \
-	S2MU106_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING
-#define POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY	S2MU106_EXT_PROP_TTF_FULL_CAPACITY
-#define POWER_SUPPLY_EXT_PROP_UPDATE_BATTERY_DATA	S2MU106_EXT_PROP_UPDATE_BATTERY_DATA
-#define POWER_SUPPLY_EXT_PROP_WIRELESS_TXMODE_DISCON \
-	S2MU106_EXT_PROP_WIRELESS_TXMODE_DISCON
+#define POWER_SUPPLY_PROP_VCHGIN		POWER_SUPPLY_EXT_PROP_VCHGIN
+#define POWER_SUPPLY_PROP_VWCIN		POWER_SUPPLY_EXT_PROP_VWCIN
+#define POWER_SUPPLY_PROP_VBYP		POWER_SUPPLY_EXT_PROP_VBYP
+#define POWER_SUPPLY_PROP_VSYS		POWER_SUPPLY_EXT_PROP_VSYS
+#define POWER_SUPPLY_PROP_VBAT		POWER_SUPPLY_EXT_PROP_VBAT
+#define POWER_SUPPLY_PROP_VGPADC		POWER_SUPPLY_EXT_PROP_VGPADC
+#define POWER_SUPPLY_PROP_VCC1		POWER_SUPPLY_EXT_PROP_VCC1
+#define POWER_SUPPLY_PROP_VCC2		POWER_SUPPLY_EXT_PROP_VCC2
+#define POWER_SUPPLY_PROP_ICHGIN		POWER_SUPPLY_EXT_PROP_ICHGIN
+#define POWER_SUPPLY_PROP_IWCIN		POWER_SUPPLY_EXT_PROP_IWCIN
+#define POWER_SUPPLY_PROP_IOTG		POWER_SUPPLY_EXT_PROP_IOTG
+#define POWER_SUPPLY_PROP_ITX		POWER_SUPPLY_EXT_PROP_ITX
+#define POWER_SUPPLY_PROP_CO_ENABLE	POWER_SUPPLY_EXT_PROP_CO_ENABLE
+#define POWER_SUPPLY_PROP_RR_ENABLE	POWER_SUPPLY_EXT_PROP_RR_ENABLE
+#define POWER_SUPPLY_PROP_PM_FACTORY	POWER_SUPPLY_EXT_PROP_PM_FACTORY
+#define POWER_SUPPLY_PROP_FUELGAUGE_RESET	POWER_SUPPLY_EXT_PROP_FUELGAUGE_RESET
+#define POWER_SUPPLY_PROP_USBPD_RESET	POWER_SUPPLY_EXT_PROP_USBPD_RESET
+#define POWER_SUPPLY_PROP_FACTORY_MODE	POWER_SUPPLY_EXT_PROP_FACTORY_MODE
+#define POWER_SUPPLY_PROP_SOH		POWER_SUPPLY_EXT_PROP_SOH
 
 /*
  * 4.9 gates the factory_mode global behind CONFIG_SEC_FACTORY. With the

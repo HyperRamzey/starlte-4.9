@@ -70,7 +70,70 @@ enum power_supply_ext_property {
 	POWER_SUPPLY_EXT_PROP_MST_STATUS,
 	POWER_SUPPLY_EXT_PROP_JIG_GPIO,
 	POWER_SUPPLY_EXT_PROP_SRCCAP,
+
+	/*
+	 * 7885 DDK S2MU106 private window.
+	 *
+	 * The names below are the ones drivers/power/s2mu106_* actually use and
+	 * that this shared enum does not already provide. They start ABOVE
+	 * POWER_SUPPLY_EXT_PROP_MAX on purpose:
+	 *
+	 *  - 85..114 (CHECK_SLAVE_I2C..SRCCAP) is the shared window that
+	 *    max77705/max77865/mfc/sec_battery already dispatch on;
+	 *  - every in-tree driver handles the extended range with
+	 *    `case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:`. A
+	 *    private property placed inside that range would be a DUPLICATE
+	 *    case value against any other property it shares a number with, and
+	 *    would be silently reinterpreted by every other driver.
+	 *
+	 * They live in this enum (not a second private enum) so that a
+	 * `switch (ext_psp)` typed `enum power_supply_ext_property` can name
+	 * them without tripping -Wswitch.
+	 *
+	 * POWER_SUPPLY_EXT_PROP_AICL_CURRENT is deliberately NOT repeated here:
+	 * it is already a shared enumerator above, and the S2MU106 charger sends
+	 * it to the "battery" power supply, whose sec_battery.c dispatches on
+	 * the shared value. Re-declaring it under a second number is what made
+	 * that write land in `default:` and get dropped.
+	 */
+	POWER_SUPPLY_EXT_PROP_VCHGIN = POWER_SUPPLY_EXT_PROP_MAX + 1,
+	POWER_SUPPLY_EXT_PROP_VWCIN,
+	POWER_SUPPLY_EXT_PROP_VBYP,
+	POWER_SUPPLY_EXT_PROP_VSYS,
+	POWER_SUPPLY_EXT_PROP_VBAT,
+	POWER_SUPPLY_EXT_PROP_VGPADC,
+	POWER_SUPPLY_EXT_PROP_VCC1,
+	POWER_SUPPLY_EXT_PROP_VCC2,
+	POWER_SUPPLY_EXT_PROP_ICHGIN,
+	POWER_SUPPLY_EXT_PROP_IWCIN,
+	POWER_SUPPLY_EXT_PROP_IOTG,
+	POWER_SUPPLY_EXT_PROP_ITX,
+	POWER_SUPPLY_EXT_PROP_CO_ENABLE,
+	POWER_SUPPLY_EXT_PROP_RR_ENABLE,
+	POWER_SUPPLY_EXT_PROP_PM_FACTORY,
+	POWER_SUPPLY_EXT_PROP_FUELGAUGE_RESET,
+	POWER_SUPPLY_EXT_PROP_USBPD_RESET,
+	POWER_SUPPLY_EXT_PROP_FACTORY_MODE,
+	POWER_SUPPLY_EXT_PROP_SOH,
+	POWER_SUPPLY_EXT_PROP_CURRENT_MEASURE,
+	POWER_SUPPLY_EXT_PROP_FACTORY_VOLTAGE_REGULATION,
+	POWER_SUPPLY_EXT_PROP_FUELGAUGE_FACTORY,
+	POWER_SUPPLY_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING,
+	POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY,
+	POWER_SUPPLY_EXT_PROP_UPDATE_BATTERY_DATA,
+	POWER_SUPPLY_EXT_PROP_WIRELESS_TXMODE_DISCON,
+	POWER_SUPPLY_EXT_PROP_S2MU106_MAX = POWER_SUPPLY_EXT_PROP_WIRELESS_TXMODE_DISCON,
 };
+
+/*
+ * The S2MU106 private window, as a pair of endpoints for the same
+ * `case A ... B:` range idiom the shared window uses. Add BOTH to any switch
+ * that dispatches an S2MU106 private property:
+ *
+ *   case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+ *   case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+ */
+#define POWER_SUPPLY_EXT_PROP_S2MU106_BASE POWER_SUPPLY_EXT_PROP_VCHGIN
 
 enum sec_battery_usb_conf {
 	USB_CURRENT_UNCONFIGURED = 100,
@@ -162,6 +225,21 @@ enum sec_battery_capacity_mode {
 	SEC_BATTERY_CAPACITY_QH,
 	/* vfsoc */
 	SEC_BATTERY_CAPACITY_VFSOC,
+};
+
+/*
+ * BATT_INBAT_VOLTAGE / FGSRC switching, as on the 4.4 A30s donor
+ * (drivers/battery_v2/include/sec_charging_common.h:355-361). This enum is
+ * absent from the whole 4.9 tree, so every
+ * SEC_BAT_{,INBAT_}FGSRC_SWITCHING_{ON,OFF} reference in
+ * s2mu106_charger.c / s2mu106_fuelgauge.c failed to resolve. Values are
+ * identical to the donor: 0,1,2,3.
+ */
+enum sec_battery_inbat_fgsrc_switching {
+	SEC_BAT_INBAT_FGSRC_SWITCHING_ON = 0,
+	SEC_BAT_INBAT_FGSRC_SWITCHING_OFF,
+	SEC_BAT_FGSRC_SWITCHING_ON,
+	SEC_BAT_FGSRC_SWITCHING_OFF,
 };
 
 /* ext_event */
