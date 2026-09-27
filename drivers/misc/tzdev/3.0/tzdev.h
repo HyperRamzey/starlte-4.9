@@ -33,6 +33,27 @@
 #define TZDEV_DRIVER_VERSION(a,b,c)	(((a) << 16) | ((b) << 8) | (c))
 #define TZDEV_DRIVER_CODE		TZDEV_DRIVER_VERSION(3,0,0)
 
+/*
+ * KERNEL_VERSION() is not a shipped header in this tree.  The Makefile
+ * generates both LINUX_VERSION_CODE and KERNEL_VERSION() into
+ * include/generated/uapi/linux/version.h (filechk_version.h) and then
+ * deletes the old include/linux/version.h, so <linux/version.h> above only
+ * resolves because -I$(objtree)/include/generated/uapi is on the include
+ * path.  For this port that generated value is 4.9.219 (0x409db), not the
+ * 4.4 the resident secure world shipped against.  The macros below exist
+ * only to make that legible in the SMC 13 log line.
+ */
+#define TZDEV_KVER_A(code)	(((unsigned int)(code) >> 16) & 0xff)
+#define TZDEV_KVER_B(code)	(((unsigned int)(code) >> 8) & 0xff)
+#define TZDEV_KVER_C(code)	((unsigned int)(code) & 0xff)
+
+/*
+ * Version code the resident Kinibi secure world has already accepted from
+ * this hardware: the 4.4 A30s tree this shim was ported from.  Purely a
+ * reporting reference for the SMC 13 log line; nothing branches on it.
+ */
+#define TZDEV_KVER_KNOWN_GOOD	KERNEL_VERSION(4, 4, 302)
+
 #define SMC_NO(x)			"" # x
 #define SMC(x)				"smc " SMC_NO(x)
 
@@ -129,7 +150,16 @@ int __tzdev_smc_cmd(struct tzdev_smc_data *data);
 #define tzdev_smc_shmem_list_rls(id)				tzdev_smc_cmd(TZDEV_SMC_SHMEM_LIST_RLS, (id), 0, 0, 0, 0, 0)
 #define tzdev_smc_sysconf()					tzdev_smc_cmd(TZDEV_SMC_SYSCONF, 0, 0, 0, 0, 0, 0)
 #define tzdev_smc_tz_panic_dump_init()				tzdev_smc_cmd(TZDEV_SMC_TZ_PANIC_DUMP_INIT, 0, 0, 0, 0, 0, 0)
-#define tzdev_smc_check_version()				tzdev_smc_cmd(TZDEV_SMC_CHECK_VERSION, LINUX_VERSION_CODE, TZDEV_DRIVER_CODE, 0, 0, 0, 0)
+/*
+ * Argument tuple for the SMC 13 version handshake, defined once so the
+ * instrumented call in tzdev.c and the plain macro below cannot drift
+ * apart.  args[0] = function id, args[1] = normal-world kernel version
+ * code, args[2] = this shim's driver code, args[3..6] = zero.
+ */
+#define TZDEV_SMC_CHECK_VERSION_ARGS	\
+	TZDEV_SMC_CHECK_VERSION, LINUX_VERSION_CODE, TZDEV_DRIVER_CODE, 0, 0, 0, 0
+
+#define tzdev_smc_check_version()	tzdev_smc_cmd(TZDEV_SMC_CHECK_VERSION_ARGS)
 #define tzdev_smc_mem_reg(pfn, order)				tzdev_smc_cmd(TZDEV_SMC_MEM_REG, (pfn), (order), 0, 0, 0, 0)
 #define tzdev_smc_boot_log_read(pfn, nr_pages)			tzdev_smc_cmd(TZDEV_SMC_BOOT_LOG_READ, (pfn), (nr_pages), 0, 0, 0, 0)
 #define tzdev_smc_profiler_control(cmd, arg)			tzdev_smc_cmd(TZDEV_SMC_PROFILER_CONTROL, (cmd), (arg), 0, 0, 0, 0)

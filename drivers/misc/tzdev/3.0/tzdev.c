@@ -140,11 +140,26 @@ static int tzdev_sysconf(struct tzio_sysconf *sysconf)
 
 	ret = tzdev_smc_sysconf();
 	if (ret) {
-		tzdev_print(0, "tzdev_smc_sysconf() failed with %d\n", ret);
+		pr_err("tzdev: SMC%u SYSCONF failed: ret=%d, nwd flags=0x%x\n",
+			(unsigned int)TZDEV_SMC_SYSCONF, ret,
+			sysconf->nwd_sysconf.flags);
 		goto out;
 	}
 
 	memcpy(&sysconf->swd_sysconf, ch->buffer, sizeof(struct tzio_swd_sysconf));
+	/*
+	 * The secure kernel fills os_version/cpu_num/version in itself, so this
+	 * is a direct readout of which Kinibi build is actually resident --
+	 * information the source tree cannot give us.  version[] is a fixed
+	 * 256-byte field that is not guaranteed to be NUL terminated, hence the
+	 * explicit precision.
+	 */
+	pr_info("tzdev: SMC%u SYSCONF ok: nwd flags=0x%x; swd os_version=%u cpu_num=%u big_cpus_mask=0x%x flags=0x%x swd_version=\"%.*s\"\n",
+		(unsigned int)TZDEV_SMC_SYSCONF, sysconf->nwd_sysconf.flags,
+		sysconf->swd_sysconf.os_version, sysconf->swd_sysconf.cpu_num,
+		sysconf->swd_sysconf.big_cpus_mask, sysconf->swd_sysconf.flags,
+		(int)sizeof(sysconf->swd_sysconf.version) - 1,
+		sysconf->swd_sysconf.version);
 out:
 	tz_iwio_put_aux_channel();
 
@@ -163,12 +178,19 @@ static void dump_kernel_panic_bh(struct work_struct *work)
 {
 	atomic_set(&tzdev_swd_state, TZDEV_SWD_DEAD);
 	if (atomic_read(&tzdev_nwd_state) == TZDEV_NWD_UP) {
+		pr_err("tzdev: IWI_PANIC asserted by the secure kernel (nwd=UP, swd=DEAD). This is a secure-world panic, not a Linux fault; the normal world is the victim.\n");
+		pr_err("tzdev: handshake was linux=%u.%u.%u (0x%x) driver=0x%x; see the SMC%u CHECK_VERSION line above for whether the secure kernel accepted it\n",
+			TZDEV_KVER_A(LINUX_VERSION_CODE), TZDEV_KVER_B(LINUX_VERSION_CODE),
+			TZDEV_KVER_C(LINUX_VERSION_CODE), (unsigned int)LINUX_VERSION_CODE,
+			(unsigned int)TZDEV_DRIVER_CODE, (unsigned int)TZDEV_SMC_CHECK_VERSION);
 		tz_iw_boot_log_read();
 		tz_iwlog_read_buffers();
 		tz_iwsock_kernel_panic_handler();
 		tz_kthread_pool_fini();
 		tzdev_mem_release_panic_handler();
-		panic("tzdev: IWI_PANIC raised\n");
+		panic("tzdev: IWI_PANIC raised (secure-kernel panic, linux=%u.%u.%u)\n",
+			TZDEV_KVER_A(LINUX_VERSION_CODE), TZDEV_KVER_B(LINUX_VERSION_CODE),
+			TZDEV_KVER_C(LINUX_VERSION_CODE));
 	}
 }
 
@@ -176,6 +198,7 @@ static DECLARE_WORK(dump_kernel_panic, dump_kernel_panic_bh);
 
 static irqreturn_t tzdev_panic_handler(int irq, void *ptr)
 {
+	pr_err("tzdev: IWI panic IRQ %u asserted, queueing secure-world panic dump\n", (unsigned int)irq);
 	schedule_work(&dump_kernel_panic);
 	return IRQ_HANDLED;
 }
@@ -269,18 +292,80 @@ unsigned int tzdev_is_up(void)
 	return atomic_read(&tzdev_swd_state) == TZDEV_SWD_UP;
 }
 
+/*
+ * Version-handshake instrumentation.
+ *
+ * SMC 13 is the only point at which the normal world tells the resident
+ * Kinibi secure kernel what it is, and it is the first thing this port runs
+ * against a firmware image nobody here can read or rebuild.  Historically
+ * both outcomes were silent: tzdev_print() is gated on tzdev_verbosity, and
+ * the caller deliberately swallows -ENOSYS and -EINVAL.  So state the
+ * outcome explicitly, once per boot, unconditionally.
+ *
+ * pr_info/pr_err rather than trace_printk: trace_printk is compiled out
+ * unless CONFIG_TRACEPOINTS is set and never reaches the persistent
+ * console, so it would not survive the IWI_PANIC path.  printk() on these
+ * paths costs one line each and is what ramoops/pstore keeps.
+ */
+static int tzdev_check_version_logged(void)
+{
+	struct tzdev_smc_data data = { .args = { TZDEV_SMC_CHECK_VERSION_ARGS } };
+	unsigned int fid = (unsigned int)data.args[0];
+	unsigned int lvc = (unsigned int)data.args[1];
+	unsigned int drc = (unsigned int)data.args[2];
+	unsigned int good = (unsigned int)TZDEV_KVER_KNOWN_GOOD;
+	int smc_ret;
+	int sw_status;
+
+	pr_info("tzdev: SMC%u CHECK_VERSION sending: linux=%u.%u.%u (0x%x) driver=%u.%u.%u (0x%x) known-good-linux=%u.%u.%u (0x%x)\n",
+		fid,
+		TZDEV_KVER_A(lvc), TZDEV_KVER_B(lvc), TZDEV_KVER_C(lvc), lvc,
+		TZDEV_KVER_A(drc), TZDEV_KVER_B(drc), TZDEV_KVER_C(drc), drc,
+		TZDEV_KVER_A(good), TZDEV_KVER_B(good), TZDEV_KVER_C(good), good);
+
+	smc_ret = __tzdev_smc_cmd(&data);
+	sw_status = (int)data.args[0];
+
+	/*
+	 * Identical to what tzdev_smc_cmd() would have produced: a non-zero
+	 * platform return wins, otherwise the secure world's own status in
+	 * args[0] is the result.
+	 */
+	if (smc_ret)
+		pr_err("tzdev: SMC%u CHECK_VERSION platform SMC returned %d (secure status 0x%x): secure kernel did not service the call at all\n",
+			fid, smc_ret, data.args[0]);
+	else if (!sw_status)
+		pr_info("tzdev: SMC%u CHECK_VERSION accepted by secure kernel (status 0) for linux=%u.%u.%u (0x%x)\n",
+			fid,
+			TZDEV_KVER_A(lvc), TZDEV_KVER_B(lvc), TZDEV_KVER_C(lvc), lvc);
+	else if (sw_status == -ENOSYS)
+		pr_err("tzdev: SMC%u CHECK_VERSION secure kernel returned -ENOSYS: this SK predates SMC 13, so it never saw linux=%u.%u.%u; init continues regardless\n",
+			fid,
+			TZDEV_KVER_A(lvc), TZDEV_KVER_B(lvc), TZDEV_KVER_C(lvc));
+	else if (sw_status == -EINVAL)
+		pr_err("tzdev: SMC%u CHECK_VERSION secure kernel returned -EINVAL: it read linux=%u.%u.%u (0x%x) and rejected it; init continues regardless\n",
+			fid,
+			TZDEV_KVER_A(lvc), TZDEV_KVER_B(lvc), TZDEV_KVER_C(lvc), lvc);
+	else
+		pr_err("tzdev: SMC%u CHECK_VERSION secure kernel returned %d (0x%x) for linux=%u.%u.%u (0x%x)\n",
+			fid, sw_status, data.args[0],
+			TZDEV_KVER_A(lvc), TZDEV_KVER_B(lvc), TZDEV_KVER_C(lvc), lvc);
+
+	return smc_ret ? smc_ret : sw_status;
+}
+
 int tzdev_run_init_sequence(void)
 {
 	int ret = 0;
 
 	if (atomic_read(&tzdev_swd_state) == TZDEV_SWD_DOWN) {
 		/* check kernel and driver version compatibility with TEEGRIS */
-		ret = tzdev_smc_check_version();
+		ret = tzdev_check_version_logged();
 		if (ret == -ENOSYS || ret == -EINVAL) {
 			/* version is not compatibile. Not critical, continue ... */
 			ret = 0;
 		} else if (ret) {
-			tzdev_print(0, "tzdev_smc_check_version() failed\n");
+			pr_err("tzdev: version handshake rejected (ret=%d); aborting tzdev init\n", ret);
 			goto out;
 		}
 
@@ -351,6 +436,9 @@ int tzdev_run_init_sequence(void)
 			ret = -ESHUTDOWN;
 			goto out;
 		}
+		pr_info("tzdev: secure world UP, handshake complete with linux=%u.%u.%u (0x%x)\n",
+			TZDEV_KVER_A(LINUX_VERSION_CODE), TZDEV_KVER_B(LINUX_VERSION_CODE),
+			TZDEV_KVER_C(LINUX_VERSION_CODE), (unsigned int)LINUX_VERSION_CODE);
 
 		if (tzdev_deploy_tzar()) {
 			tzdev_print(0, "tzdev_deploy_tzar() failed\n");
