@@ -2901,6 +2901,89 @@ static const struct reg_default abox_reg_defaults_9810[] = {
 	{0x1318, 0x00000000},
 };
 
+/* EXONOS7885-ABOXREGS: the 7885 arm of the regmap power-on defaults.
+ *
+ * 4.4 has no SoC chain: it declares a single unconditional
+ * `abox_reg_defaults[]` (4.4 abox.c:3246-3304, 58 entries) and points its
+ * static regmap_config straight at it (4.4 abox.c:3315-3316).  The 4.9 tree
+ * split that one table into _8895 (56 entries) and _9810 (60) and selects
+ * between them at probe time, but never grew a 7885 arm -- so with
+ * CONFIG_SOC_EXYNOS7885=y and both 8895/9810 off, NO branch of the chain runs
+ * and the regmap is created with reg_defaults=NULL, num_reg_defaults=0: the
+ * ABOX SFR block is never programmed to its power-on values.
+ *
+ * Measured against both existing tables, this one is neither:
+ *   vs _8895  -- 2 extra rows: 0x0004 (ABOX_VERSION) and 0x0284.
+ *   vs _9810  -- 0x0020, 0x0028, the five 0x0500-family rows
+ *                (0x01000000 here, 0x01000010 there), no 0x1318.
+ * Hence a new table, not a reuse of _8895.
+ *
+ * Values are copied verbatim from the 4.4 A30s tree -- the only tree that has
+ * ever run this silicon -- and the ABOX firmware shipped on the A30s is built
+ * against this map, so deviating from it is a silent DSP ABI mismatch rather
+ * than a build error.
+ */
+static const struct reg_default abox_reg_defaults_7885[] = {
+	{0x0000, 0x41424F58},
+	{0x0004, 0x01000000},
+	{0x0010, 0x00000000},
+	{0x0014, 0x00000000},
+	{0x0020, 0x00000000},
+	{0x0024, 0xFFF00000},
+	{0x0028, 0x13F00000},
+	{0x0030, 0x7FFFFFFF},
+	{0x0040, 0x00000000},
+	{0x0044, 0x00000000},
+	{0x0048, 0x00000000},
+	{0x0200, 0x00000000},
+	{0x0204, 0x00000000},
+	{0x0208, 0x00000000},
+	{0x020C, 0x00000000},
+	{0x0220, 0x00000000},
+	{0x0224, 0x00000000},
+	{0x0228, 0x00000000},
+	{0x022C, 0x00000000},
+	{0x0230, 0x00000000},
+	{0x0234, 0x00000000},
+	{0x0238, 0x00000000},
+	{0x023C, 0x00000000},
+	{0x0240, 0x00000000},
+	{0x0260, 0x00000000},
+	{0x0284, 0x00000000},
+	{0x0300, 0x00000000},
+	{0x0304, 0x00000000},
+	{0x0308, 0x00000000},
+	{0x030C, 0x00000000},
+	{0x0320, 0x00000000},
+	{0x0324, 0x00000000},
+	{0x0328, 0x00000000},
+	{0x032C, 0x00000000},
+	{0x0330, 0x00000000},
+	{0x0334, 0x00000000},
+	{0x0338, 0x00000000},
+	{0x033C, 0x00000000},
+	{0x0340, 0x00000000},
+	{0x0344, 0x00000000},
+	{0x0348, 0x00000000},
+	{0x0500, 0x01000000},
+	{0x0504, 0x00000000},
+	{0x050C, 0x00000000},
+	{0x0510, 0x01000000},
+	{0x0514, 0x00000000},
+	{0x051C, 0x00000000},
+	{0x0520, 0x01000000},
+	{0x0524, 0x00000000},
+	{0x052C, 0x00000000},
+	{0x0530, 0x01000000},
+	{0x0534, 0x00000000},
+	{0x053C, 0x00000000},
+	{0x0540, 0x01000000},
+	{0x0544, 0x00000000},
+	{0x054C, 0x00000000},
+	{0x0550, 0x00000000},
+	{0x0554, 0x00000000},
+};
+
 static struct regmap_config abox_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
@@ -6239,6 +6322,10 @@ static int samsung_abox_probe(struct platform_device *pdev)
 		abox_regmap_config.reg_defaults = abox_reg_defaults_9810;
 		abox_regmap_config.num_reg_defaults =
 				ARRAY_SIZE(abox_reg_defaults_9810);
+	} else if (IS_ENABLED(CONFIG_SOC_EXYNOS7885)) {
+		abox_regmap_config.reg_defaults = abox_reg_defaults_7885;
+		abox_regmap_config.num_reg_defaults =
+				ARRAY_SIZE(abox_reg_defaults_7885);
 	}
 	data->regmap = devm_regmap_init_mmio(dev,
 			data->sfr_base,
