@@ -48,6 +48,44 @@
 #define SOC_SSVC1
 #define SOC_SSVC2
 #define SOC_SSVC3
+
+/* FIMC-IS task priority setting */
+/*
+ * These live here, and not only in the v5_2_0/v5_15_0 config headers they
+ * were introduced in, because the code that uses them is not generation
+ * specific: lib_get_task_priority() in interface/fimc-is-interface-library.c
+ * and fimc-is_groupmgr() in fimc-is-groupmgr.c are compiled for whichever
+ * FIMC-IS version is selected, and with V6_20_0 selected the v5_2_0/v5_15_0
+ * headers are not on the include path at all, so the names were simply
+ * undeclared. Every consumer of this header reaches it -- verified by
+ * walking the #include closure of each of the five affected TUs.
+ *
+ * Values are copied verbatim from
+ * xxmustafacooTR/exynos-linux-stable main@ffd1341ec
+ *   ischain/fimc-is-v5_15_0/fimc-is-config.h:82-92
+ * which is md5-identical (904b4c06ee20e121605fddd21ca7bff5) across our
+ * tree, xm_main, ExyHyperBrick eh_9810@baa585f6 and els_starlte.
+ */
+#define TASK_SENSOR_WORK_PRIO		(FIMC_IS_MAX_PRIO - 48) /* 52 */
+#define TASK_GRP_OTF_INPUT_PRIO		(FIMC_IS_MAX_PRIO - 49) /* 51 */
+#define TASK_GRP_DMA_INPUT_PRIO		(FIMC_IS_MAX_PRIO - 50) /* 50 */
+#define TASK_MSHOT_WORK_PRIO		(FIMC_IS_MAX_PRIO - 43) /* 57 */
+#define TASK_LIB_OTF_PRIO		(FIMC_IS_MAX_PRIO - 44) /* 56 */
+#define TASK_LIB_AF_PRIO		(FIMC_IS_MAX_PRIO - 45) /* 55 */
+#define TASK_LIB_ISP_DMA_PRIO		(FIMC_IS_MAX_PRIO - 46) /* 54 */
+#define TASK_LIB_3AA_DMA_PRIO		(FIMC_IS_MAX_PRIO - 47) /* 53 */
+#define TASK_LIB_AA_PRIO		(FIMC_IS_MAX_PRIO - 48) /* 52 */
+#define TASK_LIB_RTA_PRIO		(FIMC_IS_MAX_PRIO - 49) /* 51 */
+#define TASK_LIB_VRA_PRIO		(FIMC_IS_MAX_PRIO - 45) /* 55 */
+
+/*
+ * VRA channel-1 interrupt count per frame, used to cadence the
+ * msinfo_hw() ch1 trace in hardware/fimc-is-hw-vra.c. Same reasoning and
+ * same provenance as the priorities above: v5_15_0/fimc-is-hw-chain.h:104
+ * (identical in xm_main, eh_9810 and els_starlte) is the only definition on
+ * our base, and that header is not on the include path for V6_20_0.
+ */
+#define VRA_CH1_INTR_CNT_PER_FRAME	(4)
 /* #define SOC_DCP *//* TODO */
 /* #define SOC_SRDZ *//* TODO */
 
