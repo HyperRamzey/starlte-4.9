@@ -264,7 +264,7 @@ static void decon_free_dma_buf(struct decon_device *decon,
 		return;
 
 	if (dma->fence)
-		sync_fence_put(dma->fence);
+		fput(dma->fence->file);
 
 	ion_iovmm_unmap(dma->attachment, dma->dma_addr);
 
@@ -1066,17 +1066,20 @@ static int decon_import_buffer(struct decon_device *decon, int idx,
 
 	regs->plane_cnt[idx] = dpu_get_plane_cnt(config->format);
 	for (i = 0; i < regs->plane_cnt[idx]; ++i) {
-		handle = ion_import_dma_buf(decon->ion_client, config->fd_idma[i]);
-		if (IS_ERR(handle)) {
-			decon_err("failed to import fd:%d\n", config->fd_idma[i]);
-			ret = PTR_ERR(handle);
-			goto fail;
-		}
-
+		/* PORT-NOTE(dpu_7885): 4.9's ion_import_dma_buf() takes the
+		 * struct dma_buf * rather than the fd, so dma_buf_get() has to
+		 * come first and the two error labels swap roles. */
 		buf = dma_buf_get(config->fd_idma[i]);
 		if (IS_ERR_OR_NULL(buf)) {
 			decon_err("failed to get dma_buf:%ld\n", PTR_ERR(buf));
 			ret = PTR_ERR(buf);
+			goto fail;
+		}
+
+		handle = ion_import_dma_buf(decon->ion_client, buf);
+		if (IS_ERR(handle)) {
+			decon_err("failed to import fd:%d\n", config->fd_idma[i]);
+			ret = PTR_ERR(handle);
 			goto fail_buf;
 		}
 
@@ -1101,9 +1104,9 @@ static int decon_import_buffer(struct decon_device *decon, int idx,
 	return ret;
 
 fail_map:
-	dma_buf_put(buf);
-fail_buf:
 	ion_free(decon->ion_client, handle);
+fail_buf:
+	dma_buf_put(buf);
 fail:
 	return ret;
 
@@ -1165,7 +1168,7 @@ static int decon_set_win_buffer(struct decon_device *decon,
 	int ret, i;
 	u32 alpha_length;
 	struct decon_rect r;
-	struct sync_fence *fence = NULL;
+	struct sync_file *fence = NULL;
 	u32 config_size = 0;
 	u32 alloc_size = 0;
 	u32 byte_per_pixel = 4;
@@ -1188,7 +1191,7 @@ static int decon_set_win_buffer(struct decon_device *decon,
 
 	if (config->fence_fd >= 0) {
 		/* fence is managed by buffer not plane */
-		fence = sync_fence_fdget(config->fence_fd);
+		fence = sync_file_fdget(config->fence_fd);
 		regs->dma_buf_data[idx][0].fence = fence;
 		if (!fence) {
 			decon_err("failed to import fence fd\n");
@@ -1903,7 +1906,7 @@ static int decon_set_win_config(struct decon_device *decon,
 {
 	int num_of_window = 0;
 	struct decon_reg_data *regs;
-	struct sync_fence *fence;
+	struct sync_file *fence;
 	int ret = 0;
 
 	decon_dbg("%s +\n", __func__);
@@ -2014,7 +2017,7 @@ err_prepare:
 		/* video mode should keep previous buffer object */
 		if (decon->lcd_info->mode == DECON_MIPI_COMMAND_MODE)
 			decon_signal_fence(decon);
-		sync_fence_put(fence);
+		fput(fence->file);
 		put_unused_fd(win_data->fence);
 	}
 	kfree(regs);
@@ -2841,7 +2844,7 @@ static int decon_create_update_thread(struct decon_device *decon, char *name)
 	INIT_LIST_HEAD(&decon->up.list);
 	atomic_set(&decon->up.remaining_frame, 0);
 	kthread_init_worker(&decon->up.worker);
-	decon->up.thread = kthread_run_perf_critical(kthread_worker_fn,
+	decon->up.thread = kthread_run(kthread_worker_fn,
 			&decon->up.worker, name);
 	if (IS_ERR(decon->up.thread)) {
 		decon->up.thread = NULL;

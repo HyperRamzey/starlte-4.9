@@ -368,7 +368,7 @@ void decon_abd_save_fto(struct abd_protect *abd, void *fence)
 	event_log->stamp = local_clock();
 	event_log->ktime = ktime_get_real_seconds();
 #if defined(CONFIG_SOC_EXYNOS7885)
-	memcpy(&event_log->fence, fence, sizeof(struct sync_fence));
+	memcpy(&event_log->fence, fence, sizeof(struct sync_file));
 #elif defined(CONFIG_SOC_EXYNOS9810)
 	memcpy(&event_log->fence, fence, sizeof(struct sync_file));
 #else
@@ -804,7 +804,7 @@ static void decon_abd_print_fto(struct seq_file *m, struct abd_fto *trace)
 #if defined(CONFIG_SOC_EXYNOS7885)
 		abd_printf(m, "%d-%02d-%02d %02d:%02d:%02d / %lu.%06lu / winid: %d, %s:%s\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
-			(unsigned long)tv.tv_sec, tv.tv_usec, log->winid, log->fence.name, sync_status_str(atomic_read(&log->fence.status)));
+			(unsigned long)tv.tv_sec, tv.tv_usec, log->winid, log->fence.name, sync_status_str(fence_get_status(log->fence.fence)));
 #elif defined(CONFIG_SOC_EXYNOS9810)
 		abd_printf(m, "%d-%02d-%02d %02d:%02d:%02d / %lu.%06lu / winid: %d, %s\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,

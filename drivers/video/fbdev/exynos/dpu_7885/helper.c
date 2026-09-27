@@ -353,7 +353,7 @@ int decon_get_valid_fd(void)
 /* sync fence related functions */
 void decon_create_timeline(struct decon_device *decon, char *name)
 {
-	decon->timeline = sw_sync_timeline_create(name);
+	decon->timeline = sync_timeline_create(name);
 
 	if (decon->dt.out_type == DECON_OUT_DSI) {
 #if defined(CONFIG_DPU_20)
@@ -371,7 +371,7 @@ void decon_create_timeline(struct decon_device *decon, char *name)
 #if defined(CONFIG_DPU_20)
 void decon_create_release_fences(struct decon_device *decon,
 		struct decon_win_config_data *win_data,
-		struct sync_fence *fence)
+		struct sync_file *fence)
 {
 	int i = 0;
 
@@ -404,22 +404,25 @@ err:
 #endif
 
 int decon_create_fence(struct decon_device *decon,
-		struct sync_fence **fence, struct decon_reg_data *regs)
+		struct sync_file **fence, struct decon_reg_data *regs)
 {
 	struct sync_pt *pt;
 	int fd = -EMFILE;
 
 	decon->timeline_max++;
-	pt = sw_sync_pt_create(decon->timeline, decon->timeline_max);
+	pt = sync_pt_create(decon->timeline, sizeof(*pt), decon->timeline_max);
 	if (!pt) {
 		decon_err("%s: failed to create sync pt\n", __func__);
 		goto err;
 	}
 
-	*fence = sync_fence_create("display", pt);
+	/* PORT-NOTE(dpu_7885): 4.9 has no sync_fence_create().  sync_file_create()
+	 * wraps the pt's struct fence and takes its own reference, so the one the
+	 * pt still holds is dropped here.  dpu_9810/helper.c:516-517. */
+	*fence = sync_file_create(&pt->base);
+	fence_put(&pt->base);
 	if (!(*fence)) {
-		decon_err("%s: failed to create fence\n", __func__);
-		sync_pt_free(pt);
+		decon_err("%s: failed to create sync file\n", __func__);
 		goto err;
 	}
 
@@ -430,7 +433,7 @@ int decon_create_fence(struct decon_device *decon,
 
 	if (fd < 0) {
 		decon_err("%s: failed to get unused fd\n", __func__);
-		sync_fence_put(*fence);
+		fput((*fence)->file);
 		goto err;
 	}
 
@@ -441,19 +444,22 @@ err:
 	return fd;
 }
 
-void decon_install_fence(struct sync_fence *fence, int fd)
+void decon_install_fence(struct sync_file *fence, int fd)
 {
-	sync_fence_install(fence, fd);
+	/* PORT-NOTE(dpu_7885): 4.9's sync_file_create() already populated
+	 * ->file, so this is 4.4's sync_fence_install() minus the get_file.
+	 * dpu_9810/decon_core.c:2544. */
+	fd_install(fd, fence->file);
 }
 
-int decon_wait_fence(struct sync_fence *fence)
+int decon_wait_fence(struct sync_file *fence)
 {
 	int err = 0;
 #ifdef CONFIG_DECON_EVENT_LOG
 	snprintf(acquire_fence_log, ACQUIRE_FENCE_LEN, "%p:%s:%d",
-			fence, fence->name, atomic_read(&fence->status));
+			fence, fence->name, fence_get_status(fence->fence));
 #endif
-	err = sync_fence_wait(fence, 900);
+	err = sync_file_wait(fence, 900);
 #ifdef CONFIG_DECON_EVENT_LOG
 	if (err < 0)
 		decon_warn("%s: error waiting on acquire fence: %d\n", acquire_fence_log, err);
@@ -463,7 +469,7 @@ int decon_wait_fence(struct sync_fence *fence)
 
 void decon_signal_fence(struct decon_device *decon)
 {
-	sw_sync_timeline_inc(decon->timeline, 1);
+	sync_timeline_signal(decon->timeline, 1);
 }
 
 void dpu_debug_printk(const char *function_name, const char *format, ...)

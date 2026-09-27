@@ -70,10 +70,14 @@ union elvss_info {
 struct lcd_info {
 	unsigned int			connected;
 	unsigned int			brightness;
-#if defined(CONFIG_CUSTOM_BACKLIGHT_SYSFS_NODE)
+	/* PORT-NOTE(dpu_7885): these two are read unconditionally further down
+	 * (low_level_set_brightness, the dev_info paths, the tbl handler and
+	 * s6e8fc1_a30s_lcd_init), so they must exist whether or not
+	 * CONFIG_CUSTOM_BACKLIGHT_SYSFS_NODE is set.  Only the sysfs *node* that
+	 * toggles them is config-gated.  Declared unconditional so the port does
+	 * not depend on a defconfig line it does not own. */
 	unsigned int 			custom_brightness;
 	unsigned int 			custom_brightness_enable;
-#endif
 	union elvss_info		current_elvss;
 	unsigned int			current_acl;
 	unsigned int			current_opr;

@@ -12,6 +12,9 @@
 
 #include <linux/interrupt.h>
 #include <linux/fb.h>
+#include <linux/sync_file.h>	/* PORT-NOTE(dpu_7885): struct sync_fence was 4.4's
+	 * name; 4.9 calls it struct sync_file.  Needed by struct fto_log below, and
+	 * unconditional so this header does not depend on decon.h's include order. */
 #if defined(CONFIG_EXYNOS_DPU30)
 #include <linux/dma-fence.h>
 #endif
@@ -83,7 +86,7 @@ struct fto_log {
 	/* fence */
 	unsigned int winid;
 #if defined(CONFIG_SOC_EXYNOS7885)
-	struct sync_fence fence;
+	struct sync_file fence;
 #elif defined(CONFIG_SOC_EXYNOS9810)
 	struct sync_file fence;
 #else

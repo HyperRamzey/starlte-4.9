@@ -29,13 +29,19 @@
 #include <soc/samsung/bts.h>
 #include <soc/samsung/exynos-itmon.h>
 
+#include <linux/file.h>		/* PORT-NOTE(dpu_7885): fput() for the 4.9 sync_file refs */
+#include <linux/sync_file.h>	/* PORT-NOTE(dpu_7885): 4.9's name for the 4.4 struct sync_fence.
+	 * decon_abd.h needs it, so it has to be included *before* that header. */
+
 #include "regs-decon.h"
 #include "./panels/decon_lcd.h"
-#include "decon_abd.h"
-#include "dsim.h"
 #include "../../../../dma-buf/sync_debug.h"	/* PORT-NOTE(dpu_7885): 4.4 used staging/android/sw_sync.h. 4.9 deleted
 	 * drivers/staging/android/sw_sync.h; the compiling 9810 sibling spells the
-	 * same thing dma-buf/sync_debug.h (dpu_9810/decon.h:50). */
+	 * same thing dma-buf/sync_debug.h (dpu_9810/decon.h:50).  It carries
+	 * struct sync_timeline / struct sync_pt, the 4.9 replacements for
+	 * sw_sync_timeline / sw_sync_pt. */
+#include "decon_abd.h"
+#include "dsim.h"
 
 #define MAX_DECON_CNT		3
 #define SUCCESS_EXYNOS_SMC	0
@@ -599,7 +605,7 @@ struct decon_dma_buf_data {
 	struct dma_buf_attachment	*attachment;
 	struct sg_table			*sg_table;
 	dma_addr_t			dma_addr;
-	struct sync_fence		*fence;
+	struct sync_file		*fence;
 };
 
 struct decon_win_rect {
@@ -1113,7 +1119,7 @@ struct decon_device {
 
 	struct ion_client *ion_client;
 
-	struct sw_sync_timeline *timeline;
+	struct sync_timeline *timeline;
 	int timeline_max;
 
 	struct v4l2_subdev *out_sd[MAX_DSIM_CNT];
@@ -1496,12 +1502,12 @@ void decon_create_timeline(struct decon_device *decon, char *name);
 #if defined(CONFIG_DPU_20)
 void decon_create_release_fences(struct decon_device *decon,
 		struct decon_win_config_data *win_data,
-		struct sync_fence *fence);
+		struct sync_file *fence);
 #endif
 int decon_create_fence(struct decon_device *decon,
-		struct sync_fence **fence, struct decon_reg_data *regs);
-void decon_install_fence(struct sync_fence *fence, int fd);
-int decon_wait_fence(struct sync_fence *fence);
+		struct sync_file **fence, struct decon_reg_data *regs);
+void decon_install_fence(struct sync_file *fence, int fd);
+int decon_wait_fence(struct sync_file *fence);
 void decon_signal_fence(struct decon_device *decon);
 
 bool decon_intersect(struct decon_rect *r1, struct decon_rect *r2);
