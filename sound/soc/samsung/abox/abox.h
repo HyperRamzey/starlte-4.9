@@ -31,7 +31,15 @@
 #define ABOX_SYSTEM_CONFIG0		(0x0020)
 #define ABOX_REMAP_MASK			(0x0024)
 #define ABOX_REMAP_ADDR			(0x0028)
+#ifdef CONFIG_SOC_EXYNOS7885
+/* Exynos7885: 4.4 abox.h:34 ships 0x0034; 4.9 moved it to 0x0030.
+ * Proven on 7885 silicon (4.4 tree).  Used as a regmap key at
+ * abox.c:2703/2749, so a wrong offset silently gates the wrong
+ * clock bit. */
+#define ABOX_DYN_CLOCK_OFF		(0x0034)
+#else
 #define ABOX_DYN_CLOCK_OFF		(0x0030)
+#endif
 #define ABOX_QCHANNEL_DISABLE		(0x0038)
 #define ABOX_ROUTE_CTRL0		(0x0040)
 #define ABOX_ROUTE_CTRL1		(0x0044)
@@ -351,6 +359,63 @@
 #define PERIOD_BYTES_MIN		(SZ_128)
 #define PERIOD_BYTES_MAX		(BUFFER_BYTES_MAX / 2)
 
+/* ------------------------------------------------------------------
+ * IOVA / memory layout.  STRICTLY SoC-SPECIFIC.
+ *
+ * These are the CPU-visible addresses the ABOX IOMMU (sysmmu_abox,
+ * 0x14A30000 on the A30s) maps our buffers at, and the addresses
+ * handed to the DSP in VTS message phyaddr fields.  They are not
+ * physical addresses and never appear in /proc/iomem.
+ *
+ * Identical in both trees (verified by full #define diff), so they
+ * stay unguarded: IOVA_DRAM_FIRMWARE 0x80000000,
+ * IOVA_IVA_FIRMWARE/IOVA_IVA_BASE 0x90000000,
+ * IOVA_VSS_FIRMWARE 0xA0000000, IOVA_DUMP_BUFFER 0xD0000000,
+ * PHSY_VSS_FIRMWARE 0xFEE00000, PHSY_VSS_SIZE, IVA_FIRMWARE_SIZE,
+ * BUFFER_BYTES_MAX, PERIOD_BYTES_MIN/MAX.
+ * ------------------------------------------------------------------ */
+/* EXONOS7885-MEMLAYOUT: the whole map below is SoC-split. */
+#ifdef CONFIG_SOC_EXYNOS7885
+/* Exynos7885 (A30s / exynos7885-common).  Every value below is taken
+ * verbatim from the 4.4 A30s tree (sound/soc/samsung/abox/abox.h
+ * :334-351), which is the only tree that has ever run this silicon.
+ */
+#define DRAM_FIRMWARE_SIZE		(SZ_8M + SZ_4M)
+#define IOVA_DRAM_FIRMWARE		(0x80000000)
+#define IOVA_IVA_FIRMWARE		(0x90000000)
+#define IOVA_IVA_BASE			(IOVA_IVA_FIRMWARE)
+/* SZ_16M, not SZ_1M.  The stride and the three buffer bases are ONE
+ * coupled map and must be moved together with DRAM_FIRMWARE_SIZE:
+ * on 7885 the DRAM firmware window ends at 0x80000000+12M =
+ * 0x80BFFFFF and IOVA_RDMA_BUFFER_BASE is 0x81000000, leaving only a
+ * 4MB gap.  Keeping the 9810 18MB DRAM_FIRMWARE_SIZE while moving the
+ * bases to 0x81/82/83 overlaps the DRAM firmware window and the RDMA
+ * window by 2MB (0x81000000-0x811FFFFF).
+ *
+ * Note the failure mode is NOT a CPU-side IOVA aliasing bug: the
+ * unpatched header is internally self-consistent, because it is simply
+ * the 9810 map.  The 7885 ABOX calliope DSP firmware is closed-source
+ * and is built against the 4.4 map, so handing it 0x91/92/93 and a
+ * SZ_1M IVA stride is a silent DSP ABI mismatch, not a build error. */
+#define IOVA_IVA(x)			(IOVA_IVA_BASE + (SZ_16M * x))
+#define IOVA_RDMA_BUFFER_BASE		(0x81000000)
+#define IOVA_RDMA_BUFFER(x)		(IOVA_RDMA_BUFFER_BASE + (SZ_1M * x))
+#define IOVA_WDMA_BUFFER_BASE		(0x82000000)
+#define IOVA_WDMA_BUFFER(x)		(IOVA_WDMA_BUFFER_BASE + (SZ_1M * x))
+#define IOVA_COMPR_BUFFER_BASE		(0x83000000)
+#define IOVA_COMPR_BUFFER(x)		(IOVA_COMPR_BUFFER_BASE + (SZ_1M * x))
+/* 4.4:347.  A real, live 7885 ABOX IOVA window (8 use-sites in the
+ * 4.4 tree: abox.c:2038/2054/2104/2120/6007, abox_rdma.c:1138,
+ * abox_wdma.c:123 -- the Bluetooth offload PCM path).  The 4.9 driver
+ * has no call site for it, so this is the constant only: the BT
+ * offload path itself is NOT ported.  Declared here so the 0xBx
+ * window is not silently reused for something else. */
+#define BT_SHARED_MEMORY		(0xB0000000)
+/* 4.4:351 REALTIME_BASE (0x80880000) is intentionally NOT restored:
+ * in the 4.4 tree it is a bare #define with zero use-sites anywhere
+ * (whole-tree grep: 1 hit, the definition itself).  Restoring it
+ * would add dead code, not behaviour. */
+#else
 #define DRAM_FIRMWARE_SIZE		(SZ_16M + SZ_2M)
 #define IOVA_DRAM_FIRMWARE		(0x80000000)
 #define IOVA_IVA_FIRMWARE		(0x90000000)
@@ -362,10 +427,19 @@
 #define IOVA_WDMA_BUFFER(x)		(IOVA_WDMA_BUFFER_BASE + (SZ_1M * x))
 #define IOVA_COMPR_BUFFER_BASE		(0x93000000)
 #define IOVA_COMPR_BUFFER(x)		(IOVA_COMPR_BUFFER_BASE + (SZ_1M * x))
+#endif /* CONFIG_SOC_EXYNOS7885 */
+/* Exynos9810-only.  Left defined for every SoC on purpose: its only
+ * consumer is abox_vdma.c, which is itself a 4.9-only file and
+ * would stop compiling if this were #ifdef'd away.  It is never
+ * reached on 7885. */
 #define IOVA_VDMA_BUFFER_BASE		(0x94000000)
 #define IOVA_VDMA_BUFFER(x)		(IOVA_VDMA_BUFFER_BASE + (SZ_1M * x))
+/* Unchanged across 4.4/4.9, guarded for completeness of the map. */
 #define IVA_FIRMWARE_SIZE		(SZ_512K)
 #define IOVA_VSS_FIRMWARE		(0xA0000000)
+/* 4.9-only, 1 use-site (abox.c:6118).  0xA1000000 is outside
+ * 7885's VSS window (0xA0000000 + PHSY_VSS_SIZE = 6M), so it does
+ * not alias here; harmless to keep unconditional. */
 #define IOVA_VSS_PARAMETER		(0xA1000000)
 #define IOVA_DUMP_BUFFER		(0xD0000000)
 #define PHSY_VSS_FIRMWARE		(0xFEE00000)
@@ -391,9 +465,15 @@
 #define ABOX_SAMPLE_FORMATS (SNDRV_PCM_FMTBIT_S16\
 		| SNDRV_PCM_FMTBIT_S24\
 		| SNDRV_PCM_FMTBIT_S32)
+#ifdef CONFIG_SOC_EXYNOS7885
+/* Exynos7885: 4.4 abox.h:369 has no SNDRV_PCM_FMTBIT_S32 here. */
+#define ABOX_WDMA_SAMPLE_FORMATS (SNDRV_PCM_FMTBIT_S16\
+		| SNDRV_PCM_FMTBIT_S24)
+#else
 #define ABOX_WDMA_SAMPLE_FORMATS (SNDRV_PCM_FMTBIT_S16\
 		| SNDRV_PCM_FMTBIT_S24\
 		| SNDRV_PCM_FMTBIT_S32)
+#endif
 
 #define set_mask_value(id, mask, value) \
 		{id = (typeof(id))((id & ~mask) | (value & mask)); }
@@ -402,6 +482,13 @@
 		set_mask_value(id, name##_MASK, value << name##_L)
 
 #define ABOX_SUPPLEMENT_SIZE (SZ_128)
+/* Deliberately NOT SoC-split.  4.4:376 ships SZ_8 and 4.9:405 ships
+ * SZ_64, but this is a software policy constant, not silicon: 4.9's
+ * struct abox_ipc carries a full ABOX_IPC_MSG where 4.4's carried only
+ * a 128-byte supplement buffer, which is why the depth was raised.  The
+ * ring buffer is depth-agnostic (abox.c:471-475 uses ARRAY_SIZE() and
+ * has a correct full check), so keeping SZ_64 cannot break 7885 and
+ * avoids message drops.  Left at 4.9's value on purpose. */
 #define ABOX_IPC_QUEUE_SIZE (SZ_64)
 
 #define CALLIOPE_VERSION(class, year, month, minor) \
