@@ -252,6 +252,38 @@ config CAMERA_CIS_SR259_OBJ
 		help
 		  Use to build SR259 camera sensor.
 
+config CAMERA_CIS_4HA_OBJ
+        bool "Use 4HA camera cis"
+	depends on USE_DIRECT_IS_CONTROL
+	depends on CAMERA_CIS_SELECT
+        default n
+        help
+          Use to build 4HA camera sensor.
+
+config CAMERA_CIS_GC5035_OBJ
+        bool "Use GC5035 camera cis"
+	depends on USE_DIRECT_IS_CONTROL
+	depends on CAMERA_CIS_SELECT
+        default n
+        help
+          Use to build GC5035 camera sensor.
+
+config CAMERA_CIS_HI1631_OBJ
+        bool "Use HI1631 camera cis"
+	depends on USE_DIRECT_IS_CONTROL
+	depends on CAMERA_CIS_SELECT
+        default n
+        help
+          Use to build HI1631 camera sensor.
+
+config CAMERA_CIS_IMX576_OBJ
+        bool "Use IMX576 camera cis"
+	depends on USE_DIRECT_IS_CONTROL
+	depends on CAMERA_CIS_SELECT
+        default n
+        help
+          Use to build IMX576 camera sensor.
+
 config CAMERA_CIS_VIRTUAL_OBJ
 		bool "Use VIRTUAL camera cis"
 	depends on USE_DIRECT_IS_CONTROL
