@@ -4,13 +4,127 @@
 
 comment "CCIC configs"
 
-config CCIC_S2MU106
-	bool "Using S2MU106 USB PD"
+# ---------------------------------------------------------------------------
+# USE_CCIC: the S2MU106 USB-PD *framework* switch.
+# ---------------------------------------------------------------------------
+# 4.4 gates usbpd.o, usbpd_cc.o, usbpd_policy.o and usbpd_manager.o on
+# USE_CCIC, and gates each chip on "depends on USE_CCIC". This tree had no
+# USE_CCIC at all, which is why the framework had no home. The four framework
+# .c files are now in the tree, so the symbol is added and the chip symbols are
+# wired to it the way 4.4 wires them.
+config USE_CCIC
+	bool "Using USBPD device driver"
 	depends on I2C
 	default n
 	help
 	  If you say yes here you will get support for
+	  the USB PD(Power Delivery) device driver.
+
+	  This builds the chip-independent half of Samsung's Type-C PD stack:
+	  usbpd.c (protocol layer), usbpd_cc.c (CC/PD glue and the mainline
+	  Type-C adapter), usbpd_manager.c (PDO and capability management) and
+	  usbpd_policy.c (the policy state machine). It is meaningless on its
+	  own; a chip symbol such as CCIC_S2MU106 must also be selected.
+
+config CCIC_S2MU106
+	bool "Using S2MU106 USB PD"
+	depends on USE_CCIC
+	depends on I2C
+	depends on !CCIC_S2MM005
+	default n
+	help
+	  If you say yes here you will get support for
 	  for the S2MU106 USBPD chip.
+
+	  The !CCIC_S2MM005 line is mutual exclusion, not decoration.
+	  drivers/ccic/s2mm005_pd.c:80 defines
+	  vbus_turn_on_ctrl(struct s2mm005_data *, bool) -- actually
+	  vbus_turn_on_ctrl(bool) -- while
+	  drivers/ccic/s2mu106-usbpd.c:200 defines
+	  vbus_turn_on_ctrl(struct s2mu106_usbpd_data *, bool). C has no
+	  function overloading, so linking both objects is a duplicate-symbol
+	  error at best and, in a translation unit that saw both declarations,
+	  a conflicting-types error at compile time. Measured: no TU in this
+	  tree sees both declarations, because
+	  include/linux/ccic/s2mm005_ext.h (the 1-arg form) is included only by
+	  s2mm005*.c, ccic_alternate.c and
+	  drivers/usb/manager/usb_typec_manager_notifier.c, none of which is in
+	  the S2MU106 include closure. So the collision is a LINK-time one and
+	  excluding the combination here is sufficient.
+
+	  This is also the correct configuration on its own merits: the real
+	  A307FN device tree has no s2mm005 node anywhere, and the stock
+	  4.4.177 config selects CCIC_S2MU106 and not CCIC_S2MM005.
+
+# 4.4 defines these three in drivers/battery_v2/Kconfig. They are relocated
+# here because their only consumer in the whole tree is
+# drivers/ccic/usbpd_policy.c, and because putting them here lets the
+# dependency on USE_CCIC be expressed. PDIC_PD30 in particular is
+# load-bearing: 36 #if defined(CONFIG_PDIC_PD30) sites in usbpd_policy.c
+# select between the PD 2.0 and PD 3.0 message sets, the RP180/RP330 current
+# advertisement, and whether spec_revision is re-read from the wire. 4.4
+# gives it "default y"; that default is reproduced, not weakened, and the
+# stock device is PD 2.0 so the #else arms (USBPD_PD2_0, RP180) are what
+# actually run in practice.
+config PDIC_PD30
+	bool "support for PDIC_30"
+	depends on USE_CCIC
+	default y
+	help
+	  Say Y to include support for PDIC 30. Relocated from 4.4's
+	  drivers/battery_v2/Kconfig; only drivers/ccic/usbpd_policy.c uses it.
+
+config CCIC_MANUAL_QBAT
+	bool "Using S2MU106 USB PD QBAT Manual Control"
+	depends on USE_CCIC
+	default n
+	help
+	  If you say yes here you will get support for
+	  for the S2MU106 USBPD chip.
+	  Read by drivers/ccic/s2mu106-usbpd.c at lines 1814 and 1855, each
+	  under "&& !defined(CONFIG_SEC_FACTORY)". The stock config sets
+	  CONFIG_CCIC_MANUAL_QBAT=y.
+
+config CCIC_TYPEC_PRSWAP
+	bool "support Power Role Swap"
+	depends on USE_CCIC
+	depends on CCIC_S2MU106
+	default y
+	help
+	  If you say yes here you will get support for
+	  for the Power Role Swap.
+
+	  4.4 adds two depends-on lines that are deliberately NOT reproduced:
+	  "depends on ANDROID_MAJOR_VERSION != n/o/p" and
+	  "depends on CCIC_S2MU004 || CCIC_S2MU106 || CCIC_S2MU205".
+
+	  The chip list reduces to CCIC_S2MU106 because the other two chip
+	  symbols are left undefined on purpose (see below).
+
+	  The ANDROID_MAJOR_VERSION guard is a landmine. That symbol is an
+	  env-provided string (Kconfig:15, "option env=") and the 4.9 port is
+	  built standalone with plain make rather than through a ROM's soong
+	  build, so it is normally empty -- and an empty string satisfies
+	  != "n", != "o" and != "p", which is why the guard looks harmless
+	  today. But a 4.9 kernel is an Android 9/10-era tree, so "p" is its
+	  natural value; anyone building this with ANDROID_MAJOR_VERSION=p set
+	  would silently lose Power Role Swap, which the stock device needs
+	  because the port is a dual-role DRP. The tree's own
+	  drivers/usb/typec/Kconfig already uses a single "!= o" guard for the
+	  same reason. The stock config sets CONFIG_CCIC_TYPEC_PRSWAP=y.
+
+# NOT added, on purpose. Leaving these four symbols undefined is what makes
+# the correct thing happen if a defconfig names them:
+#   CCIC_S2MU004  30 #if sites, and the only reason usbpd_cc.c would need
+#                 include/linux/ccic/usbpd-s2mu004.h, which does not exist here
+#   CCIC_S2MU205  26 #if sites, same, via usbpd-s2mu205.h
+#   CCIC_VDM      4.4 says it is the S2MU004 VDM feature. Its only consumers
+#                 tree-wide are inside drivers/ccic/s2mu004-usbpd.c, which is
+#                 not part of this port. It is a no-op on S2MU106.
+#   CCIC_MODE_BY_MUIC, CCIC_MODE_WITHOUT_MUIC, CCIC_EXTERNAL_CAPACITOR
+#                 the stock config records CCIC_MODE_BY_MUIC as not set
+# If any of them were defined, Kconfig would drop the "=y" from a defconfig
+# with a warning rather than compiling an include that is not there.
 
 config CCIC_PDIC_NOTIFIER
 	bool "S2MU106 CCIC attach/detach notifier"

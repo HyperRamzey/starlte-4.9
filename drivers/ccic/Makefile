@@ -2,8 +2,23 @@
 # Makefile for ccic devices
 #
 
-# S2MU106 CCIC. CCIC_S2MU106 is intentionally left off - see drivers/ccic/
-# Kconfig for why the USB-PD framework is not ported.
+# S2MU106 CCIC, plus the chip-independent USB-PD framework.
+#
+# The four framework objects are the whole of the 10,345-line port that
+# CCIC_S2MU106 was previously unable to switch on. 4.4 reaches them from
+# USE_CCIC, and so does this.
+#
+# 4.4's equivalent lines are
+#   obj-$(CONFIG_USE_CCIC) += usbpd.o usbpd_cc.o
+#   obj-$(CONFIG_USE_CCIC) += usbpd_policy.o usbpd_manager.o pdic_notifier.o ccic_misc.o
+# and the two trailing objects are deliberately NOT repeated here. Both are
+# already reachable by their own, more specific symbols in this tree:
+# pdic_notifier.o by CONFIG_CCIC_PDIC_NOTIFIER and ccic_misc.o by
+# CONFIG_CCIC_NOTIFIER, both of which are above. Adding them a second time
+# would put the same object into obj-y twice. 4.4 had the same hazard between
+# USE_CCIC and CCIC_ALTERNATE_MODE, which both named ccic_misc.o; it just
+# never bit because that combination was never enabled.
+obj-$(CONFIG_USE_CCIC)		+= usbpd.o usbpd_cc.o usbpd_policy.o usbpd_manager.o
 obj-$(CONFIG_CCIC_S2MU106)	+= s2mu106-usbpd.o
 obj-$(CONFIG_CCIC_PDIC_NOTIFIER)	+= pdic_notifier.o
 

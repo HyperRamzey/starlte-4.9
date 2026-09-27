@@ -49,11 +49,12 @@ obj-$(CONFIG_MUIC_SM5508)		+= sm5508-muic.o
 # S2MU106 generation (4.4 exynos7885 / Galaxy A30s). muic_core.o and
 # muic_manager.c were already in the tree but no Makefile rule reached them;
 # see drivers/muic/Kconfig for why MUIC_S2MU106 excludes the legacy chips.
-# drivers/muic/muic_sysfs.c is deliberately absent here: MUIC_SYSFS has no
-# 4.9 Kconfig symbol and the 4.4 source file (654 lines) has not been ported,
-# so s2mu106-muic.c's muic_sysfs_init/_deinit calls stay unresolved until the
-# USB-PD wave brings it over.
+# muic_sysfs.o is the 4.4 file (654 donor lines, now ported) and supplies the
+# muic_sysfs_init / muic_sysfs_deinit that s2mu106-muic.c calls at lines 2922,
+# 3050 and 3076. It is a different object from universal/muic_sysfs.o, which
+# belongs to the MUIC_UNIVERSAL generation and is gated on MUIC_UNIVERSAL.
 obj-$(CONFIG_MUIC_CORE)				+= muic_core.o
+obj-$(CONFIG_MUIC_SYSFS)			+= muic_sysfs.o
 obj-$(CONFIG_MUIC_MANAGER)		+= muic_manager.o
 obj-$(CONFIG_MUIC_S2MU106)			+= s2mu106-muic.o
 obj-$(CONFIG_HV_MUIC_S2MU106_AFC)	+= s2mu106-muic-afc.o
