@@ -58,6 +58,18 @@ typedef enum {
 	CCIC_NOTIFY_ID_ROLE_SWAP,
 	CCIC_NOTIFY_ID_FAC,
 	CCIC_NOTIFY_ID_CC_PIN_STATUS,
+
+	/* 4.4 has these two between CCIC_NOTIFY_ID_VCONN and
+	 * CCIC_NOTIFY_ID_DP_CONNECT. They are appended HERE rather than in
+	 * 4.4's position on purpose: ccic_notifier_id_t has no _MAX
+	 * sentinel, so appending renumbers nothing, whereas 4.4's position
+	 * would shift CCIC_NOTIFY_ID_DP_CONNECT through
+	 * CCIC_NOTIFY_ID_CC_PIN_STATUS by +2 and change the notification ids
+	 * the built max77705/universal stack sends. Producer and consumer of
+	 * every notification are compiled from this one header, so internal
+	 * consistency is all that is required. */
+	CCIC_NOTIFY_ID_OTG,
+	CCIC_NOTIFY_ID_TA,
 } ccic_notifier_id_t;
 
 typedef struct
