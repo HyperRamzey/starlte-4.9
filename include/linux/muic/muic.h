@@ -25,6 +25,13 @@
 #ifndef __MUIC_H__
 #define __MUIC_H__
 
+#include <linux/mutex.h>
+
+/* Only ever used through a pointer in this header and in
+ * struct muic_platform_data; declared here so muic.h does not have to pull in
+ * linux/device.h. */
+struct device;
+
 /* Status of IF PMIC chip (suspend and resume) */
 enum {
 	MUIC_SUSPEND		= 0,
@@ -269,8 +276,26 @@ struct muic_platform_data {
 	void (*init_switch_dev_cb)(void);
 	void (*cleanup_switch_dev_cb)(void);
 
-	/* muic GPIO control function */
-	int (*init_gpio_cb)(int switch_sel);
+	/* muic GPIO control function
+	 *
+	 * The 4.9 base declared this as "(int switch_sel)", the max77705 /
+	 * universal generation form. 4.4 muic.h:310 declares
+	 * "(void *data, int switch_sel)", and that is the form the S2MU106
+	 * stack implements: drivers/muic/muic_core.c:271 casts the first
+	 * argument to struct muic_platform_data * and dereferences ->muic_if,
+	 * ->usb_path and ->uart_path, so the argument is load-bearing and
+	 * cannot be dropped at the call site.
+	 *
+	 * Every caller of the 1-argument form lives in a translation unit this
+	 * board does not build: CONFIG_MUIC_MAX77705, MUIC_MAX77854,
+	 * MUIC_UNIVERSAL, MUIC_SM5508 and MUIC_TSU6721 are all unset in the
+	 * effective .config, and the build log only ever reaches muic_core.o,
+	 * muic_manager.o, muic_notifier.o, muic_sysfs.o, s2mu106-muic.o and
+	 * s2mu106-muic-afc.o. Of the surviving users the only one is
+	 * drivers/muic/s2mu106-muic.c:2912, which already passes two
+	 * arguments. Restored to the 4.4 signature.
+	 */
+	int (*init_gpio_cb)(void *data, int switch_sel);
 	int (*set_gpio_usb_sel)(int usb_path);
 	int (*set_gpio_uart_sel)(int uart_path);
 	int (*set_safeout)(int safeout_path);
@@ -316,6 +341,24 @@ struct muic_platform_data {
 	 * Its values (HV_STATE_INVALID..HV_STATE_MAX_NUM) all fit an int. */
 	int hv_state;
 	void (*jig_uart_cb)(int jig_state);
+
+#ifdef CONFIG_MUIC_SYSFS
+	/* 4.4 include/linux/muic/muic.h:278-281, guarded by CONFIG_MUIC_SYSFS
+	 * there and here. The 4.9 max77705 generation never created a
+	 * "switch" sec_device at all: muic_interface.h only declares the extern
+	 * global, while drivers/muic/muic_sysfs.c:645-678 hangs
+	 * muic_sysfs_group off muic_pdata->switch_device->kobj and takes
+	 * sysfs_mutex, so the two fields are required, not optional. Appended,
+	 * not interleaved, for the same reason as the fields above: every
+	 * initialiser of this struct is designated and the only allocation is
+	 * kzalloc(sizeof(*pdata)), so growing it is inert.
+	 *
+	 * The 4.9-generation callers of muic_sysfs_init() are not built on this
+	 * board (see init_gpio_cb above); universal/muic_sysfs.c is a different
+	 * object behind a different symbol. */
+	struct device *switch_device;
+	struct mutex sysfs_mutex;
+#endif
 };
 
 int get_switch_sel(void);

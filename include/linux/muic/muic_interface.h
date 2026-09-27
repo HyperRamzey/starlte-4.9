@@ -37,7 +37,21 @@
 
 #include <linux/muic/muic.h>
 #include <linux/power_supply.h>
-#include <linux/battery/sec_charging_common.h>
+/*
+ * 4.4 muic_interface.h:26 includes the battery_v2 private header, not the
+ * 4.9 public <linux/battery/sec_charging_common.h>. Both files use the SAME
+ * include guard (__SEC_CHARGING_COMMON_H), but only the battery_v2 one
+ * carries "enum power_supply_ext_property" and its POWER_SUPPLY_EXT_PROP_*
+ * enumerators; the 4.9 public copy is the max77705-generation slim header and
+ * has neither. Including the slim copy first therefore poisons the guard, the
+ * real header is skipped, and every S2MU106 user of the ext properties
+ * (muic_manager.c:1021 POWER_SUPPLY_EXT_PROP_CURRENT_MEASURE,
+ * muic_sysfs.c:504 POWER_SUPPLY_EXT_PROP_HV_DISABLE) fails with an incomplete
+ * enum. Restored to the 4.4 path. muic_interface.h itself names no
+ * sec_charging_common.h symbol; the include is transitive provisioning for its
+ * six S2MU106 includers, which is why the ordering matters.
+ */
+#include "../drivers/battery_v2/include/sec_charging_common.h"
 
 #define muic_err(fmt, ...)					\
 	do {							\
@@ -54,10 +68,24 @@
 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);		\
 	} while (0)
 
-enum muic_op_mode {
-	OPMODE_MUIC = 0<<0,
-	OPMODE_CCIC = 1<<0,
-};
+/*
+ * 4.4 muic_interface.h:40-43 also spelled out "enum muic_op_mode" here. The
+ * 4.4 muic.h did NOT define it, so the 4.4 tree had exactly one owner. The 4.9
+ * base muic.h DOES define it, at muic.h:40-43, byte-identical to the pristine
+ * G965F/Exynos9810 4.9 header (verified: same lines, same values) and
+ * untouched since the "import G965FXXU7DTAA OSRC" commit. This header includes
+ * muic.h at line 38, so the two definitions are always in the same
+ * translation unit and the second is always an error.
+ *
+ * Single owner is therefore muic.h:40-43, which is also the header that
+ * struct muic_platform_data uses for its "enum muic_op_mode opmode" member.
+ * The 4.4 copy is dropped here rather than the 4.9 one because muic.h is the
+ * base-owned, unmodified header and is what the max77705 / universal stack
+ * includes; and because the two definitions were already identical
+ * (OPMODE_MUIC = 0<<0, OPMODE_CCIC = 1<<0), so nothing is renumbered and
+ * "enum muic_op_mode opmode" below still resolves. Not an enumeration is being
+ * deleted to quiet the compiler: both enumerators survive, in muic.h.
+ */
 
 /* Slave addr = 0x4A: MUIC */
 enum ioctl_cmd {

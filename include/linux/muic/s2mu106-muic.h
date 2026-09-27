@@ -932,6 +932,61 @@ typedef enum {
 	S2MU106_IRQ_SKIP,
 } t_irq_status;
 
+/*
+ * The two HV state-machine typedefs below used to sit at line 1207 of
+ * this header, i.e. 206 lines AFTER "struct s2mu106_muic_data"
+ * (line 938) used muic_hv_state_t in its hv_state member. A typedef has
+ * to precede its use, so every one of the six S2MU106 translation units
+ * that includes this header -- s2mu106-muic.c, s2mu106-muic-afc.c,
+ * muic_core.c, muic_manager.c, muic_sysfs.c and s2mu106-usbpd.c -- failed
+ * with "unknown type name 'muic_hv_state_t'", six error lines in
+ * total. The block is MOVED, not copied, so muic_hv_state_t keeps
+ * exactly one definition and no enumerator is renumbered.
+ *
+ * It deliberately stays in this S2MU106-private header rather than moving
+ * to muic.h (where 4.4 muic.h:221-248 keeps it, under CONFIG_MUIC_HV):
+ * muic.h is included by this file at line 38, so a typedef in muic.h is
+ * visible here and the reverse is not true. muic.h:317 therefore keeps
+ * its "int hv_state" field, which is what the note below already says.
+ */
+/*
+ * 4.4 include/linux/muic/muic.h:221-248. These were gated on CONFIG_MUIC_HV
+ * there. They are declared unconditionally here so that the S2MU106
+ * translation units can name the values regardless of how the Kconfig
+ * symbol ends up ordered; the values themselves are the AFC protocol state
+ * machine's and must not be renumbered.
+ *
+ * The field muic_pdata->hv_state is declared "int" by the muic.h SHARED-HUNK
+ * (so muic.h does not have to see these typedefs). Every access goes through
+ * the muic_core_hv_{set,get}_* helpers in drivers/muic/muic_core.c, which
+ * cast explicitly, so the field's declared type is not load-bearing.
+ */
+typedef enum {
+	HV_STATE_INVALID = -1,
+	HV_STATE_IDLE = 0,
+	HV_STATE_DCP_CHARGER = 1,
+	HV_STATE_FAST_CHARGE_ADAPTOR = 2,
+	HV_STATE_FAST_CHARGE_COMMUNICATION = 3,
+	HV_STATE_AFC_5V_CHARGER = 4,
+	HV_STATE_AFC_9V_CHARGER = 5,
+	HV_STATE_QC_CHARGER = 6,
+	HV_STATE_QC_5V_CHARGER = 7,
+	HV_STATE_QC_9V_CHARGER = 8,
+	HV_STATE_MAX_NUM = 9,
+} muic_hv_state_t;
+
+typedef enum {
+	HV_TRANS_INVALID = -1,
+	HV_TRANS_MUIC_DETACH = 0,
+	HV_TRANS_DCP_DETECTED = 1,
+	HV_TRANS_NO_RESPONSE = 2,
+	HV_TRANS_VDNMON_LOW = 3,
+	HV_TRANS_FAST_CHARGE_PING_RESPONSE = 4,
+	HV_TRANS_VBUS_BOOST = 5,
+	HV_TRANS_VBUS_REDUCE = 6,
+	HV_TRANS_MAX_NUM = 7,
+} muic_hv_transaction_t;
+
 /* muic chip specific internal data structure
  * that setted at muic-xxxx.c file
  */
@@ -1029,10 +1084,6 @@ struct s2mu106_muic_data {
 	int dry_cnt;
 	long dry_duration_sec;
 
-#if IS_ENABLED(CONFIG_HICCUP_CHARGER)
-	bool is_hiccup_mode;
-#endif
-
 	struct mutex water_det_mutex;
 	struct mutex water_dry_mutex;
 
@@ -1042,6 +1093,32 @@ struct s2mu106_muic_data {
 	bool lcd_on;
 	bool is_cable_inserted;
 #endif
+
+#if IS_ENABLED(CONFIG_HICCUP_CHARGER)
+	/* Lifted out of the CONFIG_S2MU106_TYPEC_WATER block above.
+	 *
+	 * 4.4 nests this field inside the water-detection block (donor
+	 * s2mu106-muic.h:1018-1033) even though it belongs to an unrelated
+	 * feature. Its only users are guarded on CONFIG_HICCUP_CHARGER alone --
+	 * s2mu106-muic.c:387, 1196 and 1204 -- and muic_interface.h already
+	 * gates the matching set_hiccup_mode / get_hiccup_mode callbacks on
+	 * CONFIG_HICCUP_CHARGER alone, with no water guard.
+	 *
+	 * 4.4 never hit the mismatch because CONFIG_HICCUP_CHARGER and
+	 * CONFIG_S2MU106_TYPEC_WATER happened to be off together: the stock
+	 * stock_kernel.config carries "# CONFIG_HICCUP_CHARGER is not set" and
+	 * "# CONFIG_S2MU106_TYPEC_WATER is not set". This port's effective
+	 * .config sets CONFIG_HICCUP_CHARGER=y, so the three call sites compile
+	 * in while the donor nesting compiles the field back out -- three error
+	 * lines, "no member named 'is_hiccup_mode' in 'struct s2mu106_muic_data'".
+	 *
+	 * At the stock configuration the field is absent either way, so this is
+	 * behaviour-identical there. Flag for the defconfig owner independently:
+	 * CONFIG_HICCUP_CHARGER=y is a divergence from stock stock_kernel.config
+	 * and deserves its own second opinion. */
+	bool is_hiccup_mode;
+#endif
+
 	struct delayed_work rescan_validity_checker;
 	bool is_timeout_attached;
 
@@ -1097,7 +1174,8 @@ int s2mu106_muic_get_otg_state(void);
  *   - 71 of them already exist in the 4.9 include/linux/muic/muic_interface.h.
  *   - 10 of the remaining 11 are members of struct muic_platform_data, i.e.
  *     the whole incompatibility is concentrated in ONE struct.
- *   - the 11th, muic_if->regmaccic, occurs only inside a /* FIXME *\/ comment.
+ *   - the 11th, muic_if->regmaccic, occurs only inside a FIXME comment
+ *     that is itself commented out.
  *
  * Everything below is therefore S2MU106-private: it is either a macro that
  * never names a struct member, or a type/prototype used only by
@@ -1192,43 +1270,6 @@ int s2mu106_muic_get_otg_state(void);
 		s2m_pdic_notifier_detach_attached_dev(dev)
 #endif
 
-/*
- * 4.4 include/linux/muic/muic.h:221-248. These were gated on CONFIG_MUIC_HV
- * there. They are declared unconditionally here so that the S2MU106
- * translation units can name the values regardless of how the Kconfig
- * symbol ends up ordered; the values themselves are the AFC protocol state
- * machine's and must not be renumbered.
- *
- * The field muic_pdata->hv_state is declared "int" by the muic.h SHARED-HUNK
- * (so muic.h does not have to see these typedefs). Every access goes through
- * the muic_core_hv_{set,get}_* helpers in drivers/muic/muic_core.c, which
- * cast explicitly, so the field's declared type is not load-bearing.
- */
-typedef enum {
-	HV_STATE_INVALID = -1,
-	HV_STATE_IDLE = 0,
-	HV_STATE_DCP_CHARGER = 1,
-	HV_STATE_FAST_CHARGE_ADAPTOR = 2,
-	HV_STATE_FAST_CHARGE_COMMUNICATION = 3,
-	HV_STATE_AFC_5V_CHARGER = 4,
-	HV_STATE_AFC_9V_CHARGER = 5,
-	HV_STATE_QC_CHARGER = 6,
-	HV_STATE_QC_5V_CHARGER = 7,
-	HV_STATE_QC_9V_CHARGER = 8,
-	HV_STATE_MAX_NUM = 9,
-} muic_hv_state_t;
-
-typedef enum {
-	HV_TRANS_INVALID = -1,
-	HV_TRANS_MUIC_DETACH = 0,
-	HV_TRANS_DCP_DETECTED = 1,
-	HV_TRANS_NO_RESPONSE = 2,
-	HV_TRANS_VDNMON_LOW = 3,
-	HV_TRANS_FAST_CHARGE_PING_RESPONSE = 4,
-	HV_TRANS_VBUS_BOOST = 5,
-	HV_TRANS_VBUS_REDUCE = 6,
-	HV_TRANS_MAX_NUM = 7,
-} muic_hv_transaction_t;
 
 /* 4.4 include/linux/muic/muic.h:352-355. Only muic_sysfs.c consumes it. */
 enum muic_param_en {

@@ -39,6 +39,25 @@
 #include "../power/s2mu106_pmeter.h"
 
 #endif
+/*
+ * 4.4 s2mu106-usbpd.c:43 pulls the battery_v2 private sec_charging_common.h in
+ * ahead of the conditional block below, where only the CONFIG_BATTERY_SAMSUNG_V2
+ * branch resolves to that same private header. The port collapsed all three
+ * branches onto <linux/battery/sec_charging_common.h>, which is the 4.9
+ * max77705-generation slim copy: it shares the include guard
+ * __SEC_CHARGING_COMMON_H with the battery_v2 one but defines no
+ * "enum power_supply_ext_property" and no POWER_SUPPLY_EXT_PROP_* enumerator
+ * at all. Included first, it therefore sets the guard and the real header is
+ * never reached, so the
+ *   enum power_supply_ext_property ext_psp = ...
+ * local at the top of s2mu106_usbpd_set_property() failed with "cast to
+ * incomplete type" and "variable has incomplete type". Restored to the 4.4
+ * ordering.
+ *
+ * The header owner is include/linux/muic/muic_interface.h, which had the same
+ * collision for the five muic translation units; see that file.
+ */
+#include "../battery_v2/include/sec_charging_common.h"
 #if defined(CONFIG_BATTERY_SAMSUNG_V2)
 #include <linux/battery/sec_charging_common.h>
 #elif defined(CONFIG_BATTERY_SAMSUNG)

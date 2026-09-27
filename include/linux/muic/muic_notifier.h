@@ -25,6 +25,7 @@
 #ifndef __MUIC_NOTIFIER_H__
 #define __MUIC_NOTIFIER_H__
 
+#include <linux/muic/muic.h>
 #include <linux/ccic/ccic_notifier.h>
 
 /* MUIC notifier call chain command */
