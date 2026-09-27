@@ -1401,7 +1401,8 @@ static int dsim_init_resources(struct dsim_device *dsim, struct platform_device 
 	dsim->res.irq = res->start;
 	dsim_info("dsim irq (%d)\n", (u32)dsim->res.irq);
 	ret = devm_request_irq(dsim->dev, res->start,
-			dsim_irq_handler, IRQF_PERF_CRITICAL,
+			/* 4.9: no IRQF_PERF_CRITICAL; IRQF_NOBALANCING is the 4.9 equivalent. */
+			dsim_irq_handler, IRQF_NOBALANCING,
 			pdev->name, dsim);
 	if (ret) {
 		dsim_err("failed to install DSIM irq\n");

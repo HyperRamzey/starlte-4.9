@@ -116,7 +116,8 @@ int decon_register_irq(struct decon_device *decon)
 		}
 
 		ret = devm_request_irq(dev, res->start, decon_irq_handler,
-					IRQF_PERF_CRITICAL, pdev->name, decon);
+					/* 4.9: no IRQF_PERF_CRITICAL; IRQF_NOBALANCING is the 4.9 equivalent. */
+					IRQF_NOBALANCING, pdev->name, decon);
 		if (ret) {
 			decon_err("failed to install FIFO irq\n");
 			return ret;
@@ -131,7 +132,8 @@ int decon_register_irq(struct decon_device *decon)
 	}
 
 	ret = devm_request_irq(dev, res->start, decon_irq_handler,
-				IRQF_PERF_CRITICAL, pdev->name, decon);
+				/* 4.9: no IRQF_PERF_CRITICAL; IRQF_NOBALANCING is the 4.9 equivalent. */
+				IRQF_NOBALANCING, pdev->name, decon);
 	if (ret) {
 		decon_err("failed to install FRAME START irq\n");
 		return ret;
@@ -145,7 +147,8 @@ int decon_register_irq(struct decon_device *decon)
 	}
 
 	ret = devm_request_irq(dev, res->start, decon_irq_handler,
-				IRQF_PERF_CRITICAL, pdev->name, decon);
+				/* 4.9: no IRQF_PERF_CRITICAL; IRQF_NOBALANCING is the 4.9 equivalent. */
+				IRQF_NOBALANCING, pdev->name, decon);
 	if (ret) {
 		decon_err("failed to install FRAME DONE irq\n");
 		return ret;
@@ -159,7 +162,8 @@ int decon_register_irq(struct decon_device *decon)
 	}
 
 	ret = devm_request_irq(dev, res->start, decon_irq_handler,
-				IRQF_PERF_CRITICAL, pdev->name, decon);
+				/* 4.9: no IRQF_PERF_CRITICAL; IRQF_NOBALANCING is the 4.9 equivalent. */
+				IRQF_NOBALANCING, pdev->name, decon);
 	if (ret) {
 		decon_err("failed to install EXTRA irq\n");
 		return ret;
@@ -333,7 +337,8 @@ int decon_register_ext_irq(struct decon_device *decon)
 
 	decon_info("%s: gpio(%d)\n", __func__, decon->res.irq);
 	ret = devm_request_irq(dev, decon->res.irq, decon_ext_irq_handler,
-			IRQF_TRIGGER_RISING | IRQF_PERF_CRITICAL,
+			/* 4.9: no IRQF_PERF_CRITICAL; IRQF_NOBALANCING is the 4.9 equivalent. */
+			IRQF_TRIGGER_RISING | IRQF_NOBALANCING,
 			pdev->name, decon);
 
 	decon->eint_status = 1;
