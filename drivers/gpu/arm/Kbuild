@@ -43,3 +43,25 @@ ifeq ($(CONFIG_MALI_THEX),y)
 		obj-y += b_r19p0/
 	endif
 endif
+
+# ---------------------------------------------------------------------------
+# Always be able to produce a built-in.o for this directory.
+#
+# drivers/gpu/Makefile descends here unconditionally ("obj-y += arm/") and
+# scripts/Makefile.lib turns every "obj-y" entry ending in "/" into a hard
+# "<dir>/built-in.o" prerequisite of the parent link, regardless of whether
+# this directory has any objects of its own.  When no generation above is
+# selected - which is the case for any SoC that drivers/gpu/arm/Kconfig does
+# not gate on, e.g. Exynos 7885 - this directory would contribute nothing,
+# scripts/Makefile.build would never define builtin-target for it, and
+# drivers/gpu/built-in.o would fail to link with
+#
+#   ld.bfd: cannot find drivers/gpu/arm/built-in.o: No such file or directory
+#
+# Add one placeholder object in exactly that case so the aggregate always
+# exists.  Correctly configured builds (any MALI_TMIX/MALI_THEX generation
+# selected) are unaffected and never compile the stub.
+# ---------------------------------------------------------------------------
+ifeq ($(strip $(obj-y) $(obj-m)),)
+obj-y += mali_arm_ddk_stub.o
+endif
