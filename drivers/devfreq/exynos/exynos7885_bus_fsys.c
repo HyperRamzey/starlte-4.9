@@ -156,7 +156,7 @@ static int __init exynos7885_devfreq_fsys_init_prepare(struct exynos_devfreq_dat
 
 static int __init exynos7885_devfreq_fsys_initcall(void)
 {
-	if (register_exynos_devfreq_init_prepare(DEVFREQ_FSYS,
+	if (register_exynos_devfreq_init_prepare(DEVFREQ_FSYS0,
 				exynos7885_devfreq_fsys_init_prepare))
 		return -EINVAL;
 

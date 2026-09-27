@@ -19,7 +19,13 @@ obj-$(CONFIG_SND_SAMSUNG_SPDIF) += snd-soc-samsung-spdif.o
 obj-$(CONFIG_SND_SAMSUNG_PCM) += snd-soc-pcm.o
 obj-$(CONFIG_SND_SAMSUNG_I2S) += snd-soc-i2s.o
 obj-$(CONFIG_SND_SAMSUNG_I2S) += snd-soc-idma.o
+# dp_dma is the DisplayPort audio path. Only the 8895 and 9810 have a DP
+# controller, and CONFIG_SND_SOC_SAMSUNG_DISPLAYPORT cannot express that:
+# SND_SOC_SAMSUNG_EXYNOS8895/_9810 `select` it and a select beats depends on.
+# Gate the object on the SoC here instead -- kbuild is not fooled by a select.
+ifneq ($(filter y,$(CONFIG_SOC_EXYNOS8895) $(CONFIG_SOC_EXYNOS9810)),)
 obj-$(CONFIG_SND_SOC_SAMSUNG_DISPLAYPORT) += snd-soc-dp_dma.o
+endif
 obj-$(CONFIG_SND_SOC_SAMSUNG_VTS) += vts/
 obj-$(CONFIG_SND_SOC_SAMSUNG_ABOX) += abox/
 
