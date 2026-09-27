@@ -7,5 +7,8 @@ obj-$(CONFIG_EXYNOS_CORESIGHT) += exynos-coresight.o
 ifeq ($(CONFIG_SOC_EXYNOS9810),y)
 obj-$(CONFIG_EXYNOS_ITMON) += exynos9810-itmon.o
 endif
+ifeq ($(CONFIG_SOC_EXYNOS7885),y)
+obj-$(CONFIG_EXYNOS_ITMON) += exynos7885-itmon.o
+endif
 obj-$(CONFIG_EXYNOS_CONSOLE_DEBUGGER) += exynos-condbg.o exynos-condbg-dev.o
 obj-$(CONFIG_EXYNOS_CORESIGHT_ETM) += exynos-coresight-etm.o
