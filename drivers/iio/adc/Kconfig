@@ -419,6 +419,29 @@ config ROCKCHIP_SARADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called rockchip_saradc.
 
+config SEC_SPD_ADC
+	tristate "Samsung SPD (FPCB) ADC detector"
+	depends on OF
+	depends on IIO
+	depends on EXYNOS_ADC
+	default n
+	help
+	  Samsung speaker-protection / factory-PCB current-sensing ADC
+	  detector. Reads the A30s 'sec_adc_detector' IIO channel and
+	  classifies the board (FPCB) by comparing the sample against the
+	  adc_min/adc_max tables in DT. Exposes /proc/subfpcb_type and a
+	  sysfs group on the Samsung sec class device.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called sec_spd_adc.
+
+config SEC_SPD_ADC_DEBUG
+	bool "Enable debug option for Samsung SPD ADC detector"
+	depends on SEC_SPD_ADC
+	default n
+	help
+	  This option enables Samsung SPD ADC detection debug support.
+
 config STX104
 	tristate "Apex Embedded Systems STX104 driver"
 	depends on X86 && ISA_BUS_API
