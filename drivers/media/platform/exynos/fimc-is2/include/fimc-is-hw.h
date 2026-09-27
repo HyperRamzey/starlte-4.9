@@ -188,6 +188,11 @@ struct fimc_is_vci_config {
 	u32			height;
 };
 
+struct fimc_is_vci {
+	u32				pixelformat;
+	struct fimc_is_vci_config	config[CSI_VIRTUAL_CH_MAX];
+};
+
 /*
  * This enum will be used for masking each interrupt masking.
  * The irq_ids params which masked by shifting this bit(id)

@@ -84,8 +84,7 @@ struct fimc_is_device_ischain;
 
 #define FIMC_IS_TIMESTAMP_HASH_KEY	20
 
-#define FIMC_IS_SENSOR_CFG(w, h, f, s, m, l, ls, itlv, pd,			\
-	vc0_in, vc0_out, vc1_in, vc1_out, vc2_in, vc2_out, vc3_in, vc3_out) {	\
+#define FIMC_IS_SENSOR_CFG_EXT(w, h, f, s, m, l, ls, vc_1, vc_2, vc_3) {	\
 	.width				= w,					\
 	.height				= h,					\
 	.framerate			= f,					\
@@ -93,41 +92,25 @@ struct fimc_is_device_ischain;
 	.mode				= m,					\
 	.lanes				= l,					\
 	.mipi_speed			= ls,					\
-	.interleave_mode		= itlv,					\
-	.pd_mode			= pd,					\
-	.ex_mode			= EX_NONE,					\
-	.input[CSI_VIRTUAL_CH_0]	= vc0_in,				\
-	.output[CSI_VIRTUAL_CH_0]	= vc0_out,				\
-	.input[CSI_VIRTUAL_CH_1]	= vc1_in,				\
-	.output[CSI_VIRTUAL_CH_1]	= vc1_out,				\
-	.input[CSI_VIRTUAL_CH_2]	= vc2_in,				\
-	.output[CSI_VIRTUAL_CH_2]	= vc2_out,				\
-	.input[CSI_VIRTUAL_CH_3]	= vc3_in,				\
-	.output[CSI_VIRTUAL_CH_3]	= vc3_out,				\
+	.internal_vc[CSI_VIRTUAL_CH_0]	= 0,					\
+	.internal_vc[CSI_VIRTUAL_CH_1]	= vc_1,				\
+	.internal_vc[CSI_VIRTUAL_CH_2]	= vc_2,				\
+	.internal_vc[CSI_VIRTUAL_CH_3]	= vc_3,				\
 }
 
-#define FIMC_IS_SENSOR_CFG_EX(w, h, f, s, m, l, ls, itlv, pd, ex,			\
-	vc0_in, vc0_out, vc1_in, vc1_out, vc2_in, vc2_out, vc3_in, vc3_out) {	\
-	.width				= w,					\
-	.height				= h,					\
-	.framerate			= f,					\
-	.settle				= s,					\
-	.mode				= m,					\
-	.lanes				= l,					\
-	.mipi_speed			= ls,					\
-	.interleave_mode		= itlv,					\
-	.pd_mode			= pd,					\
-	.ex_mode			= ex,					\
-	.input[CSI_VIRTUAL_CH_0]	= vc0_in,				\
-	.output[CSI_VIRTUAL_CH_0]	= vc0_out,				\
-	.input[CSI_VIRTUAL_CH_1]	= vc1_in,				\
-	.output[CSI_VIRTUAL_CH_1]	= vc1_out,				\
-	.input[CSI_VIRTUAL_CH_2]	= vc2_in,				\
-	.output[CSI_VIRTUAL_CH_2]	= vc2_out,				\
-	.input[CSI_VIRTUAL_CH_3]	= vc3_in,				\
-	.output[CSI_VIRTUAL_CH_3]	= vc3_out,				\
+#define FIMC_IS_SENSOR_CFG(w, h, f, s, m, l) {	\
+	.width		= w,			\
+	.height		= h,			\
+	.framerate	= f,			\
+	.settle		= s,			\
+	.mode		= m,			\
+	.lanes		= l,			\
+	.mipi_speed	= 0,			\
+	.internal_vc[CSI_VIRTUAL_CH_0]	= 0,	\
+	.internal_vc[CSI_VIRTUAL_CH_1]	= 0,	\
+	.internal_vc[CSI_VIRTUAL_CH_2]	= 0,	\
+	.internal_vc[CSI_VIRTUAL_CH_3]	= 0,	\
 }
-
 /*
  * @map:	VC parsing info.
  *		This is determined by sensor output format.
@@ -222,6 +205,8 @@ struct fimc_is_sensor_cfg {
 	int mode;
 	u32 lanes;
 	u32 mipi_speed;
+	/* DDK v6.20: which virtual channel each internal node reads. */
+	u32 internal_vc[CSI_VIRTUAL_CH_MAX];
 	u32 interleave_mode;
 	enum fimc_is_pd_mode pd_mode;
 	enum fimc_is_ex_mode ex_mode;
@@ -276,11 +261,16 @@ struct fimc_is_module_enum {
 	u32                                             margin_bottom;
 	u32						max_framerate;
 	u32						position;
+	u32						mode;
+	u32						lanes;
 	u32						bitwidth;
+	u32						vcis;
+	struct fimc_is_vci				*vci;
 	u32						cfgs;
 	struct fimc_is_sensor_cfg			*cfg;
 	struct fimc_is_sensor_vc_max_size		vc_max_size[VC_BUF_DATA_TYPE_MAX];
 	u32						vc_max_buf;
+	u32						internal_vc[CSI_VIRTUAL_CH_MAX];
 	u32						vc_buffer_offset[CSI_VIRTUAL_CH_MAX];
 	struct i2c_client				*client;
 	struct sensor_open_extended			ext;

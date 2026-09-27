@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/semaphore.h>
 #include "fimc-is-config.h"
 #include "fimc-is-framemgr.h"
 #include "fimc-is-groupmgr.h"
@@ -264,6 +265,7 @@ struct fimc_is_hw_ip {
 	struct is_region			*region[FIMC_IS_STREAM_COUNT];
 	u32					hindex[FIMC_IS_STREAM_COUNT];
 	u32					lindex[FIMC_IS_STREAM_COUNT];
+	struct semaphore			smp_resource;
 	struct fimc_is_framemgr			*framemgr;
 	struct fimc_is_framemgr			*framemgr_late;
 	struct fimc_is_hardware			*hardware;
