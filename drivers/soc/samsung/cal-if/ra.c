@@ -584,10 +584,10 @@ int ra_enable_clkout(struct cmucal_clk *clk, bool enable)
 		exynos_pmu_update(clk->offset_idx, get_mask(clk->width, clk->shift),
 				clkout->sel << clk->shift);
 		exynos_pmu_update(clk->offset_idx, get_mask(clk->e_width, clk->e_shift),
-				0x0 << clk->e_shift);
+				clkout->en << clk->e_shift);
 	} else {
 		exynos_pmu_update(clk->offset_idx, get_mask(clk->e_width, clk->e_shift),
-				0x1 << clk->e_shift);
+				(!clkout->en) << clk->e_shift);
 	}
 
 	return 0;

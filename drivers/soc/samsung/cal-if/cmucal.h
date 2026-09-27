@@ -403,6 +403,7 @@ struct cmucal_option {
 struct cmucal_clkout {
 	struct cmucal_clk	clk;
 	unsigned int		sel;
+	unsigned int		en;
 };
 
 #define CMUCAL_VCLK(_id, _lut, _list, _seq, _switch) \
@@ -555,7 +556,23 @@ struct cmucal_clkout {
 	.ratio		= _ratio,			\
 }
 
+/*
+ * CLKOUT() keeps the 4.9/Samsung active-LOW convention (enable bit written 0
+ * to enable, 1 to disable) by defaulting the per-SoC active level to 0.  That
+ * is what every CLKOUT in exynos9810 / exynos9810_evt0 / exynos8895 needs, and
+ * it is bit-for-bit what 4.9's hardcoded 0x0 / 0x1 produced.
+ *
+ * Exynos7885 CLKOUT1 is the single exception in this tree: 4.4 drove it
+ * active-HIGH (CLKOUT1_SEL_ENABLE = 1) and it is the only CLKOUT whose enable
+ * bit sits at bit 31, at PMU offset 0x600C.  Use CLKOUT_EN() for those.
+ *
+ * .en is the ACTIVE LEVEL, so ra.c writes `.en` to enable and `!en` to disable
+ * -- identical to 4.4's ra_enable_clkout().
+ */
 #define CLKOUT(_id, _o, _s, _w, _sel, _es, _ew)		\
+	CLKOUT_EN(_id, _o, _s, _w, _sel, _es, _ew, 0)
+
+#define CLKOUT_EN(_id, _o, _s, _w, _sel, _es, _ew, _en)	\
 [_id & MASK_OF_ID] = {	\
 	.clk.id		= _id,				\
 	.clk.name	= #_id,				\
@@ -565,6 +582,7 @@ struct cmucal_clkout {
 	.clk.e_shift	= _es,				\
 	.clk.e_width	= _ew,				\
 	.sel		= _sel,				\
+	.en		= _en,				\
 }
 
 #define PLL_RATE_MPS(_rate, _m, _p, _s)			\
