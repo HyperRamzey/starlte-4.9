@@ -74,6 +74,9 @@ KCOV_INSTRUMENT_lkdtm_rodata.o	:= n
 obj-$(CONFIG_TRUSTONIC_TEE)	+= tzic64.o
 obj-$(CONFIG_MOTOR_S2MU106)	+= s2mu106_haptic.o timed_output.o
 obj-$(CONFIG_TIMA_LOG)		+= tima_debug_log.o
+obj-y				+= samsung/
+obj-$(CONFIG_TZDEV)			+= tzdev/3.0/
+obj-$(CONFIG_SAMSUNG_TUI)		+= tui/
 
 OBJCOPYFLAGS :=
 OBJCOPYFLAGS_lkdtm_rodata_objcopy.o := \

@@ -188,6 +188,7 @@ obj-$(CONFIG_NVMEM)		+= nvmem/
 obj-$(CONFIG_FPGA)		+= fpga/
 
 # Sensorhub driver
+obj-$(CONFIG_SENSORS)		+= sensors/
 obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
 
 # HRM sensor driver
