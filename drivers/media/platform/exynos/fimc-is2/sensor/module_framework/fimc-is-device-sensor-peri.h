@@ -44,6 +44,7 @@ struct fimc_is_cis {
 	u32				aperture_num;
 	bool				use_dgain;
 	bool				hdr_ctrl_by_again;
+	bool				use_wb_gain;
 
 	struct fimc_is_sensor_ctl	sensor_ctls[CAM2P0_UCTL_LIST_SIZE];
 
@@ -95,6 +96,13 @@ struct fimc_is_cis {
 #endif
 	u32				ae_exposure;
 	u32				ae_deltaev;
+	u32				ae_exposure;
+	u32				ae_deltaev;
+
+	/* settings for initial AE */
+	bool				use_initial_ae;
+	ae_setting			init_ae_setting;
+	ae_setting			last_ae_setting;
 #ifdef USE_CAMERA_FACTORY_DRAM_TEST
 	struct work_struct				factory_dramtest_work;
 	u32				factory_dramtest_section2_fcount;

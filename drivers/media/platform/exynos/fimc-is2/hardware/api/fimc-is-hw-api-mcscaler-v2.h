@@ -107,9 +107,7 @@ void fimc_is_scaler_get_poly_dst_size(void __iomem *base_addr, u32 output_id, u3
 void fimc_is_scaler_set_poly_scaling_ratio(void __iomem *base_addr, u32 output_id, u32 hratio, u32 vratio);
 void fimc_is_scaler_set_h_init_phase_offset(void __iomem *base_addr, u32 output_id, u32 h_offset);
 void fimc_is_scaler_set_v_init_phase_offset(void __iomem *base_addr, u32 output_id, u32 v_offset);
-void fimc_is_scaler_set_poly_scaler_coef(void __iomem *base_addr,
-	u32 output_id, u32 hratio, u32 vratio,
-	enum exynos_sensor_position sensor_position);
+void fimc_is_scaler_set_poly_scaler_coef(void __iomem *base_addr, u32 output_id, u32 hratio, u32 vratio);
 void fimc_is_scaler_set_poly_round_mode(void __iomem *base_addr, u32 output_id, u32 mode);
 
 void fimc_is_scaler_set_post_scaler_enable(void __iomem *base_addr, u32 output_id, u32 enable);
@@ -163,7 +161,7 @@ void fimc_is_scaler_set_wdma_2bit_addr(void __iomem *base_addr, u32 output_id,
 void fimc_is_scaler_set_rdma_2bit_stride(void __iomem *base_addr, u32 y_2bit_stride, u32 uv_2bit_stride);
 void fimc_is_scaler_set_wdma_2bit_stride(void __iomem *base_addr, u32 output_id, u32 y_2bit_stride, u32 uv_2bit_stride);
 void fimc_is_scaler_set_rdma_10bit_type(void __iomem *base_addr, u32 dma_in_10bit_type);
-void fimc_is_scaler_set_wdma_10bit_type(void __iomem *base_addr, u32 output_id, u32 format, u32 bitwidth, enum exynos_sensor_position sensor_position);
+void fimc_is_scaler_set_wdma_10bit_type(void __iomem *base_addr, u32 output_id, u32 img_10bit_type);
 
 /* for hwfc */
 void fimc_is_scaler_set_hwfc_auto_clear(void __iomem *base_addr, u32 output_id, bool auto_clear);
@@ -191,8 +189,11 @@ void fimc_is_scaler_set_tdnr_wdma_stride(void __iomem *base_addr, enum tdnr_buf_
 void fimc_is_scaler_get_tdnr_wdma_stride(void __iomem *base_addr, enum tdnr_buf_type type, u32 *y_stride, u32 *uv_stride);
 void fimc_is_scaler_set_tdnr_wdma_sram_base(void __iomem *base_addr, enum tdnr_buf_type type);
 void fimc_is_scaler_set_tdnr_wdma_enable(void __iomem *base_addr, enum tdnr_buf_type type, bool dma_out_en);
+void fimc_is_scaler_get_tdnr_image_size(void __iomem *base_addr, u32 *width, u32 *height);
 void fimc_is_scaler_set_tdnr_image_size(void __iomem *base_addr, u32 width, u32 height);
+void fimc_is_scaler_set_yic_ctrl(void __iomem *base_addr, u32 enc_mode, u32 dec_mode);
 void fimc_is_scaler_set_tdnr_mode_select(void __iomem *base_addr, enum tdnr_mode mode);
+void fimc_is_scaler_set_tdnr_rdma_start(void __iomem *base_addr, enum tdnr_mode mode);
 void fimc_is_scaler_set_tdnr_first(void __iomem *base_addr, u32 tdnr_first);
 
 void fimc_is_scaler_set_tdnr_tuneset_general(void __iomem *base_addr, struct general_config config);
@@ -218,18 +219,16 @@ void fimc_is_scaler_set_djag_dst_size(void __iomem *base_addr, u32 width, u32 he
 void fimc_is_scaler_set_djag_scaling_ratio(void __iomem *base_addr, u32 hratio, u32 vratio);
 void fimc_is_scaler_set_djag_init_phase_offset(void __iomem *base_addr, u32 h_offset, u32 v_offset);
 void fimc_is_scaler_set_djag_round_mode(void __iomem *base_addr, u32 round_enable);
-void fimc_is_scaler_set_djag_tunning_param(void __iomem *base_addr, const struct djag_setfile_contents *djag_tune);
+void fimc_is_scaler_set_djag_tunning_param(void __iomem *base_addr, struct djag_setfile_contents *djag_tune);
 
 /* ysum */
 void fimc_is_scaler_set_ysum_input_sourece_enable(void __iomem *base_addr, u32 output_id, bool ysum_enable);
-void fimc_is_scaler_set_ysum_enable(void __iomem *base_addr, bool ysum_enable);
 void fimc_is_scaler_set_ysum_image_size(void __iomem *base_addr, u32 width, u32 height, u32 start_x, u32 start_y);
 void fimc_is_scaler_get_ysum_result(void __iomem *base_addr, u32 *luma_sum_msb, u32 *luma_sum_lsb);
 
 /* DS */
 void fimc_is_scaler_set_ds_enable(void __iomem *base_addr, u32 ds_enable);
-void fimc_is_scaler_set_ds_img_size(void __iomem *base_addr, u32 width, u32 height);
-void fimc_is_scaler_set_ds_src_size(void __iomem *base_addr, u32 width, u32 height, u32 x_pos, u32 y_pos);
+void fimc_is_scaler_set_ds_src_size(void __iomem *base_addr, u32 width, u32 height);
 void fimc_is_scaler_set_ds_dst_size(void __iomem *base_addr, u32 width, u32 height);
 void fimc_is_scaler_set_ds_scaling_ratio(void __iomem *base_addr, u32 hratio, u32 vratio);
 void fimc_is_scaler_set_ds_init_phase_offset(void __iomem *base_addr, u32 h_offset, u32 v_offset);

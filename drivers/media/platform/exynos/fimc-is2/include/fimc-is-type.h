@@ -44,8 +44,8 @@ struct fimc_is_fmt {
 	u32				hw_bitwidth;
 	u32				hw_plane;
 	u8				bitsperpixel[VIDEO_MAX_PLANES];
+	u32				bitwidth;
 };
-
 struct fimc_is_image {
 	u32			framerate;
 	struct fimc_is_window	window;
