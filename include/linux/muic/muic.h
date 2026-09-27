@@ -254,6 +254,35 @@ struct muic_platform_data {
 
 	/* muic set hiccup mode function */
 	int (*muic_set_hiccup_mode_cb)(int on_off);
+
+	/* --- S2MU106 per-chip state, restored from the 4.4 tree ---
+	 * drivers/muic/{muic_core,muic_manager,s2mu106-muic,s2mu106-muic-afc}.c
+	 * all read these; the 4.9 max77705-generation header dropped them.
+	 * Appended AFTER every pre-existing member, so no existing field
+	 * offset moves. Verified: no 4.9 file reads any of these through
+	 * struct muic_platform_data -- the universal/max77705 stack keeps its
+	 * own struct muic_data fields of the same names, reached via pmuic->
+	 * and muic_data->, never pdata->. Every initialiser of this struct is
+	 * designated and the only allocation is kzalloc(sizeof(*pdata)), so
+	 * growing it is inert. */
+	void *drv_data;
+	void *muic_if;
+	bool suspended;
+	bool need_to_noti;
+	int gpio_usb_sel;
+	muic_attached_dev_t attached_dev;
+	bool is_usb_ready;
+	bool is_factory_start;
+	bool is_rustproof;
+	bool is_otg_test;
+	bool is_jig_on;
+	int vbvolt;
+	int adc;
+	/* muic_hv_state_t: that typedef only exists in the S2MU106-private
+	 * include/linux/muic/s2mu106-muic.h and is not visible from here.
+	 * Its values (HV_STATE_INVALID..HV_STATE_MAX_NUM) all fit an int. */
+	int hv_state;
+	void (*jig_uart_cb)(int jig_state);
 };
 
 int get_switch_sel(void);
