@@ -27,13 +27,25 @@
 #include <linux/isp_cooling.h>
 #include <dt-bindings/thermal/thermal_exynos.h>
 
+/* exynos7885 is a 2x Cortex-A72 + 4x Cortex-A53 part: taking six CPUs
+ * (the whole little cluster plus two big) offline is the vendor behaviour --
+ * see the 4.4 exynos7885 tree, exynos_tmu.h:30-34.  The 9810 reference tree
+ * this file was imported from only ever drops four.
+ */
+#if defined(CONFIG_SOC_EXYNOS7885)
+#define NR_HOTPLUG_CPUS	6
+#else
 #define NR_HOTPLUG_CPUS	4
+#endif
 #define MCELSIUS        1000
+#define DUAL_CPU		(2)
+#define QUAD_CPU		(4)
 
 enum soc_type {
 	SOC_ARCH_EXYNOS8890 = 1,
 	SOC_ARCH_EXYNOS8895 = 2,
 	SOC_ARCH_EXYNOS7872,
+	SOC_ARCH_EXYNOS7885,
 	SOC_ARCH_EXYNOS9810,
 };
 
@@ -93,6 +105,7 @@ enum thermal_zone_name {
 	MNGS_DUAL,
 	BIG,
 	LITTLE,
+	G3D,
 	END_ZONE_NAME,
 };
 
@@ -107,6 +120,7 @@ static const char * const tz_zone_names[] = {
 	[MNGS_DUAL]= "MNGS_DUAL",
 	[BIG]="BIG",
 	[LITTLE]="LITTLE",
+	[G3D] = "G3D",
 };
 
 struct sensor_info {
