@@ -402,6 +402,36 @@ config PHY_EXYNOS_USBDRD
 	  This driver provides PHY interface for USB 3.0 DRD controller
 	  present on Exynos SoC series.
 
+config PHY_EXYNOS_USBDRD3
+	tristate "Exynos7885 SoC USB DRD PHY (DRD3) driver"
+	depends on ARCH_EXYNOS && OF
+	depends on HAS_IOMEM
+	depends on USB_DWC3_EXYNOS
+	depends on SOC_EXYNOS7885
+	select GENERIC_PHY
+	select MFD_SYSCON
+	default n
+	help
+	  Enable USB DRD PHY support for the Exynos7885 USB 3.0 DRD controller.
+	  This is the 7883/7885-generation DPHY, which is a different piece of IP
+	  from the Exynos9810 USB3DP combo PHY in PHY_EXYNOS_USBDRD.  The DWC3
+	  node takes two references to it (usb2-phy and usb3-phy), so without this
+	  symbol of_xlate() never runs and the DWC3 probe fails.
+
+	  WARNING: this symbol and PHY_EXYNOS_USBDRD claim the SAME DT compatible,
+	  "samsung,exynos-usbdrd-phy", and cannot both be enabled - of_match_device()
+	  returns whichever registered first and the other driver silently never
+	  probes.  For the Exynos7885 enable this one and leave PHY_EXYNOS_USBDRD
+	  off; for the Exynos9810 it is the other way round.  Kconfig cannot express
+	  "exactly one of" here without one of the two symbols being silently
+	  dropped, so the conflict is documented here rather than encoded as a
+	  "depends on".
+
+	  CONFIG_PHY_SAMSUNG_USB_CAL is a hard requirement, not an option: this
+	  driver calls phy_exynos_usb_v3p1_{enable,disable,pipe_ovrd,tune,
+	  config_host_mode}(), and those live in phy-exynos-usb3p1.o, which only
+	  that symbol builds.
+
 config PHY_EXYNOS_DEBUGFS
 	tristate "Exynos SoC series USB DRD PHY DebugFS"
 	depends on DEBUG_FS
@@ -426,7 +456,7 @@ config PHY_EXYNOS_DP_DEBUGFS
 
 config PHY_SAMSUNG_USB_CAL
 	bool "Samsung USB PHY CAL"
-	depends on PHY_EXYNOS_USBDRD
+	depends on PHY_EXYNOS_USBDRD || PHY_EXYNOS_USBDRD3
 	default y
 	help
 	  Enable this to support CAL (Chip Abstraction Layer)
