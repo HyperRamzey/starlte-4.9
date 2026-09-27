@@ -279,4 +279,26 @@ enum option_id {
 	num_of_option = end_of_option - OPTION_TYPE,
 };
 
+/*
+ * derp-4.9-port: CLK_QCH() arity differs between the two shapes cmucal.h picks.
+ *
+ * With CONFIG_CMUCAL_QCH_IGNORE_SUPPORT (which the port defconfig sets) CLK_QCH()
+ * takes a 5th "QCH ignore for PM" register argument; without it, only 4.
+ * exynos9810's table passes 5 because it has real ignore registers.  The
+ * exynos7885 table came over verbatim from 4.4, which had no such concept, and
+ * passes 4 -- so it needs the 4-argument form plus an explicit "no ignore
+ * register" value.
+ *
+ * EMPTY_CLK_ID is that sentinel, and it is exactly equivalent to leaving the
+ * feature out: ra.c's QCH setup tests
+ *     if (GET_IDX(qch->ignore_idx) != EMPTY_CAL_ID) ... else qch->ignore = NULL;
+ * and EMPTY_CLK_ID == EMPTY_CAL_ID == MASK_OF_ID == 0x0000FFFF, so the else
+ * branch runs -- no ignore SFR is resolved and no extra PMU write is issued.
+ */
+#ifdef CONFIG_CMUCAL_QCH_IGNORE_SUPPORT
+#define CLK_QCH_7885(_id, _o, _so, _eo)	CLK_QCH(_id, _o, _so, _eo, EMPTY_CLK_ID)
+#else
+#define CLK_QCH_7885(_id, _o, _so, _eo)	CLK_QCH(_id, _o, _so, _eo)
+#endif
+
 #endif
