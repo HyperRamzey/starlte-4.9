@@ -1,0 +1,135 @@
+#
+# Sensor drivers configuration
+#
+# 4.9 port note (exynos7885 / A30s):
+#
+# This is the A30s sensor stack, ported from the 4.4 donor
+# drivers/sensors/Kconfig.  It is NOT the 9810-era Broadcom SSP stack in
+# drivers/sensorhub/brcm/Kconfig, and the two must never be enabled together:
+# drivers/sensorhub/brcm/sensors_core.o defines the same global symbols as
+# drivers/sensors/sensors_core.o (sensors_class, sensors_event_class,
+# sensors_register, sensors_unregister, sensors_create_symlink,
+# sensors_remove_symlink, destroy_sensor_class) with DIFFERENT signatures, so
+# having both objects in vmlinux is a duplicate-symbol link failure.
+# drivers/sensorhub/Makefile only descends into brcm/ when
+# CONFIG_SENSORS_SSP_BBD=y, so "off" on that one symbol is what keeps the link
+# clean.  See the report; the defconfig side is not owned by this port.
+#
+# SCOPE: only the drivers the A30s actually needs are declared here.  The donor
+# carries 57 files / 52,691 lines; 19 of them are ported here.  The remaining 38
+# (lis2ds, k2hh, ak09916c, gp2ap070s, gp2ap110s, stk3013, cm36658, cm36686,
+# cm3323, veml3328, cm36672p, tmd3725, tc3xxk, sx9330, sx9330_wifi, sx9360,
+# sx9360_wifi, lps22hb, lsm6dsl_spi) are ALL "# CONFIG_... is not set" in the
+# stock 4.4.177 A307FN config and have no node in the stock device tree, so
+# their Kconfig symbols are deliberately absent rather than carried as dead
+# options.  Nothing is lost: the stock config cannot set them.
+#
+# Device list is derived from the stock device tree, which is authoritative:
+#   stk,stk3x3x       -> SENSORS_STK3X3X
+#   st,lsm6dsl        -> SENSORS_LSM6DSL + SENSORS_LSM6DSL_I2C (+ _VDIS)
+#   ams,tcs3701       -> SENSORS_TCS3701
+#   yas_magnetometer  -> SENSORS_YAS539
+#   a96t3x6           -> SENSORS_A96T3X6
+#   a96t3x6_sub       -> SENSORS_A96T3X6_SUB
+#   etspi,et7xx       -> drivers/fingerprint/ (SENSORS_ET7XX), NOT this file
+#   samsung,sec-ap-thermistor -> drivers/hwmon/ (SENSORS_SEC_THERMISTOR),
+#                                 already present in 4.9, NOT this file
+
+menuconfig SENSORS
+	bool "Sensor devices"
+	help
+	  Say Y here, and a list of sensors drivers will be displayed.
+	  Everything that didn't fit into the other categories is here. This option
+	  doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+config SENSORS_CORE
+	bool "Sensors Class Support"
+	help
+	  This option enables the sensor sysfs class in /sys/class/sensors.
+	  You'll need this to do anything useful with sensorss. If unsure, say N.
+
+# accelerometer_sensor
+config SENSORS_LSM6DSL
+	tristate "STMicroelectronics LSM6DSL sensor"
+	depends on (I2C || SPI) && SYSFS
+	help
+	   This driver support the STMicroelectronics LSM6DSL sensor.
+
+	   To compile this driver as a module, choose M here. The module
+	   will be called lsm6dsl.
+
+config SENSORS_LSM6DSL_I2C
+	tristate "STMicroelectronics LSM6DSL sensor"
+	depends on (I2C || SPI) && SYSFS
+	help
+	   This driver support the STMicroelectronics LSM6DSL sensor.
+
+config SENSORS_LSM6DSL_SUPPORT_VDIS
+	bool "SENSORS_LSM6DSL_SUPPORT_VDIS"
+	default n
+	help
+	  This enables the real time thread to support vdis.
+
+# magnetic_sensor
+config SENSORS_YAS539
+	tristate "YAS539 Sensor Driver"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for YAMAHA
+	  YAS539 Geomagnitor Sensor.
+
+# optical_sensor
+config SENSORS_STK3X3X
+	depends on I2C
+	tristate "STK3X3X driver"
+	default n
+	help
+	  This option enables proximity sensor using STK3X3X driver.
+
+config SENSORS_TCS3701
+	depends on I2C
+	tristate "TCS3701 driver"
+	default n
+	help
+	   This option enables light sensor using TCS3701 driver.
+
+# grip_sensor
+config SENSORS_A96T3X6
+	depends on I2C
+	tristate "A96T3X6 touchkey"
+	default n
+	help
+	  Say Y here if you use A96T3X6 for grip.
+	  This option enables grip sensors using
+	  Above A96T3X6 device driver for grip.
+
+	  Say N here if you do not use A96T3X6 for grip.
+
+# Board selector, carried because the stock config sets it.  It gates no object
+# in drivers/sensors/Makefile and is not tested by any #ifdef in a96t3x6.c
+# (the only variant that code actually reads is CONFIG_SENSORS_A96T3X6_2CH,
+# which the A30s does not use and which is therefore not ported).  Declared so
+# that "CONFIG_SENSORS_A96T3X6_A30S=y" in a config copied from stock resolves
+# instead of being silently dropped by Kconfig.
+config SENSORS_A96T3X6_A30S
+	depends on I2C
+	tristate "A96T3X6 touchkey"
+	default n
+	help
+	  Say Y here if you use A96T3X6 for grip.
+	  This option enables grip sensors using
+	  Above A96T3X6 device driver for grip.
+
+	  Say N here if you do not use A96T3X6 for grip.
+
+config SENSORS_A96T3X6_SUB
+	depends on I2C
+	tristate "A96T3X6 driver for grip"
+	default n
+	help
+	  Say Y here if you use A96T3X6 for grip.
+	  This option enables grip sensors using
+	  Above A96T3X6 device driver for grip.
