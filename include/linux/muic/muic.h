@@ -194,6 +194,39 @@ typedef enum {
 	ATTACHED_DEV_POGO_DOCK_MUIC,
 	ATTACHED_DEV_POGO_DOCK_5V_MUIC,
 	ATTACHED_DEV_POGO_DOCK_9V_MUIC,
+	/* 4.4-only members; appended so no existing 4.9 ordinal moves.
+	 *
+	 * The enum is renumbered between the two trees: 4.4 has 79 members,
+	 * 4.9 has 68, 14 are 4.4-only, 3 are 4.9-only, and 22 shared
+	 * members disagree. First divergence is 4.4 ordinal 43,
+	 * ATTACHED_DEV_AFC_CHARGER_DISABLED_MUIC. These are appended HERE
+	 * with no explicit values, so they take the free 4.9 ordinals 66..79
+	 * and only ATTACHED_DEV_UNKNOWN_MUIC (66 -> 80) and ATTACHED_DEV_NUM
+	 * (67 -> 81) move. Giving them their 4.4 ordinals instead was
+	 * rejected: every 4.4 ordinal in the 43..76 range is already taken
+	 * by a 4.9 member, which would alias ~14 pairs of enumerators --
+	 * and dev_to_str() is a switch over these symbols, so a duplicate
+	 * value is a duplicate-case compile error, not merely a mislabel.
+	 *
+	 * The AFC device constants, ATTACHED_DEV_AFC_CHARGER_PREPARE_MUIC
+	 * through ATTACHED_DEV_AFC_CHARGER_ERR_V_DUPLI_MUIC, are 4.4
+	 * ordinals 33..42 and are identical in both trees, so AFC voltage
+	 * negotiation is unaffected. */
+	ATTACHED_DEV_AFC_CHARGER_DISABLED_MUIC,	/* 4.4 ord 43 */
+	ATTACHED_DEV_TYPE3_MUIC,			/* 57 */
+	ATTACHED_DEV_TYPE3_MUIC_TA,			/* 58 */
+	ATTACHED_DEV_TYPE3_ADAPTER_MUIC,		/* 59 */
+	ATTACHED_DEV_TYPE3_CHARGER_MUIC,		/* 60 */
+	ATTACHED_DEV_NONE_TYPE3_MUIC,			/* 61 */
+	ATTACHED_DEV_WIRELESS_PAD_MUIC,		/* 65 */
+	ATTACHED_DEV_CARKIT_MUIC,			/* 66 */
+	ATTACHED_DEV_POWERPACK_MUIC,			/* 67 */
+	ATTACHED_DEV_CHK_WATER_REQ,			/* 70 */
+	ATTACHED_DEV_CHK_WATER_DRY_REQ,			/* 71 */
+	ATTACHED_DEV_CHECK_OCP,			/* 73 */
+	ATTACHED_DEV_FACTORY_UART_MUIC,		/* 75 */
+	ATTACHED_DEV_ABNORMAL_OTG_MUIC,		/* 76 */
+
 	ATTACHED_DEV_UNKNOWN_MUIC,
 	ATTACHED_DEV_NUM,
 } muic_attached_dev_t;
