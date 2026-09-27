@@ -7,12 +7,14 @@ menuconfig SEC_SIPC_MODEM_IF
 if SEC_SIPC_MODEM_IF
 
 config SEC_MODEM_SS310AP
-	bool "Exynos8895 and SS310 feature"
+	bool "Exynos7885 and SS310 feature"
 	select UMTS_MODEM_SS310AP
 	select LINK_DEVICE_SHMEM
 	select CP_SECURE_BOOT
-	select CP_RAM_LOGGING
-	select KLAT
+	select HW_REV_DETECT
+	select LINK_DEVICE_NAPI
+	select MODEM_IF_NET_GRO
+	select MODEM_IF_QOS
 	default y
 
 config CP_ZEROCOPY
@@ -104,6 +106,11 @@ config CP_RAM_LOGGING
 
 config HW_REV_DETECT
 	bool "Support HW REV Detect"
+	default n
+
+config MODEM_IF_LEGACY_QOS
+	bool "Implement QoS for legacy"
+	depends on LINK_DEVICE_SHMEM
 	default n
 
 config MODEM_IF_QOS
