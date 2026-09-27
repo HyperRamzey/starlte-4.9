@@ -46,15 +46,37 @@ enum exynos_sensor_channel {
 	SENSOR_CONTROL_I2C_MAX
 };
 
+/*
+ * Physical sensor slots.
+ *
+ * The numeric values are DT/firmware ABI, not free choices. The A307FN stock
+ * device tree drives positions 0x00, 0x01, 0x02 and 0x04 (module nodes in the
+ * stock dtbo_0.dts, plus use_common_rom_position = <0x04>), so
+ * SENSOR_POSITION_REAR3 must be 4 or the fourth module never binds.
+ *
+ * SENSOR_POSITION_SECURE is not a physical slot -- it is a virtual position
+ * used by the secure-camera path -- so it is kept out of the 0..MAX range at
+ * 100, exactly as the 4.4 A30s DDK donor has it. The DT never assigns 100 to
+ * a module, and the built users (vendor/mcd/fimc-is-vender.c,
+ * fimc-is-device-sensor_v2.c, fimc-is-device-ischain.c) only use it as a
+ * switch label, never as an array index.
+ *
+ * SENSOR_POSITION_END is retained as an alias of SENSOR_POSITION_MAX: the
+ * exynos7884-lineage files still built alongside the DDK chain
+ * (hardware/fimc-is-hw-control.{c,h}, include/fimc-is-vender.h) use it as an
+ * array/loop bound. Aliasing leaves those files untouched and widens their
+ * bound from 4 to 6, which now covers every real slot.
+ */
 enum exynos_sensor_position {
 	SENSOR_POSITION_REAR = 0,
 	SENSOR_POSITION_FRONT = 1,
 	SENSOR_POSITION_REAR2 = 2,
-	SENSOR_POSITION_SECURE = 3,
-#ifdef CONFIG_VENDER_PSV
-	SENSOR_POSITION_VIRTUAL = 4,
-#endif
-	SENSOR_POSITION_END
+	SENSOR_POSITION_FRONT2 = 3,
+	SENSOR_POSITION_REAR3 = 4,
+	SENSOR_POSITION_FRONT3 = 5,
+	SENSOR_POSITION_MAX,
+	SENSOR_POSITION_SECURE = 100,
+	SENSOR_POSITION_END = SENSOR_POSITION_MAX,
 };
 
 enum exynos_sensor_id {
@@ -95,7 +117,7 @@ enum exynos_sensor_id {
 	SENSOR_NAME_S5K3M3		 = 33,
 	SENSOR_NAME_S5K4H5YC_FF		 = 34,
 	SENSOR_NAME_S5K2L7		 = 35,
-	SENSOR_NAME_SAK2L3		 = 36,
+	SENSOR_NAME_S5K4HA		 = 39,
 	SENSOR_NAME_S5K3P8SP		 = 44,
 	SENSOR_NAME_S5K2P7SX		 = 45,
 	SENSOR_NAME_S5K4EC		 = 57,
@@ -114,7 +136,7 @@ enum exynos_sensor_id {
 	SENSOR_NAME_IMX320		 = 111,
 	SENSOR_NAME_IMX333		 = 112,
 	SENSOR_NAME_IMX241		 = 113,
-	SENSOR_NAME_IMX345		 = 114,
+	SENSOR_NAME_IMX576		 = 115,
 
 	/* 201~255: Other vendor sensors */
 	SENSOR_NAME_SR261		 = 201,
@@ -123,7 +145,8 @@ enum exynos_sensor_id {
 	SENSOR_NAME_OV5670		 = 204,
 	SENSOR_NAME_DSIM		 = 205,
 	SENSOR_NAME_SR259		 = 206,
-	SENSOR_NAME_VIRTUAL		 = 207,
+	SENSOR_NAME_GC5035		 = 210,
+	SENSOR_NAME_HI1631		 = 213,
 
 	/* 256~: currently not used */
 	SENSOR_NAME_CUSTOM		 = 301,
@@ -226,6 +249,21 @@ enum sensor_retention_state
 	SENSOR_RETENTION_UNSUPPORTED = 0,
 	SENSOR_RETENTION_INACTIVE = 1,
 	SENSOR_RETENTION_ACTIVATED = 2,
+
+	/*
+	 * The DDK v6.20 module/CIS sources spell the same three states with
+	 * different names (4.4 A30s donor: DISABLE=0 / READY=1 / USE=2).
+	 * They are the same states, not extra ones, so they are added as
+	 * aliases rather than new values -- a module that reports DISABLE is
+	 * handled identically to one that reports UNSUPPORTED.
+	 *
+	 * Adding these as distinct values would be wrong: 2l1/2l2 CIS compare
+	 * the same field against READY and USE while 2l3 compares it against
+	 * INACTIVE and ACTIVATED, and those files must agree.
+	 */
+	SENSOR_RETENTION_DISABLE = SENSOR_RETENTION_UNSUPPORTED,
+	SENSOR_RETENTION_READY	 = SENSOR_RETENTION_INACTIVE,
+	SENSOR_RETENTION_USE	 = SENSOR_RETENTION_ACTIVATED,
 };
 
 struct i2c_type {
@@ -295,6 +333,8 @@ struct sensor_open_extended {
 	/* Use sensor retention mode */
 	u32 use_retention_mode;
 	struct sensor_protocol1 reserved[4];
+	/* I2C slave clock frequency, in Hz. */
+	u32 I2CSclk;
 };
 
 struct exynos_platform_fimc_is_sensor {
