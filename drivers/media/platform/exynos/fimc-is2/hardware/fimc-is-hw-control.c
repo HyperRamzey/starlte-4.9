@@ -1121,7 +1121,10 @@ int fimc_is_hardware_grp_shot(struct fimc_is_hardware *hardware, u32 instance,
 	struct fimc_is_group *group, struct fimc_is_frame *frame, ulong hw_map)
 {
 	int ret = 0;
-	int i, hw_slot = -1;
+	int hw_slot = -1;
+#if defined(MULTI_SHOT_KTHREAD) || defined(MULTI_SHOT_TASKLET)
+	int i;
+#endif
 	struct fimc_is_hw_ip *hw_ip = NULL;
 	enum fimc_is_hardware_id hw_id = DEV_HW_END;
 	struct fimc_is_frame *hw_frame;

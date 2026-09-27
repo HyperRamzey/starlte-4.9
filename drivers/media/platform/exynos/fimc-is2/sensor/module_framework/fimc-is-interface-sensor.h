@@ -142,6 +142,13 @@ typedef struct {
 	unsigned int factory_step;
 } ois_shared_data;
 
+struct wb_gains {
+	u32 gr;
+	u32 r;
+	u32 b;
+	u32 gb;
+};
+
 typedef struct {
 	/** The length of a frame is specified as a number of lines, frame_length_lines.
 	  @remarks

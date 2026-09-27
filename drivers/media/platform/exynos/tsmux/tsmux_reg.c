@@ -253,6 +253,8 @@
 #include "cmu_mfc/exynos9810_cmu_mfc.h"
 #endif
 #define MAX_OFFSET_CMU_MFC_SFR		0x8000
+
+#ifdef CONFIG_SOC_EXYNOS9810
 #define TSMUX_CMU_MFC_READL(offset)    \
 	(readl(tsmux_dev->regs_base_cmu_mfc + (offset)))
 
@@ -295,6 +297,29 @@ void tsmux_print_cmu_mfc_sfr(struct tsmux_device *tsmux_dev) {
 	}
 
 }
+#else
+/*
+ * The CMU/MFC register block only exists on Exynos9810; the SFR table is
+ * the Exynos9810 one (cmu_mfc/exynos9810_cmu_mfc.h) and there is no
+ * equivalent for any other SoC, in this tree or in
+ * xxmustafacooTR/exynos-linux-stable main@ffd1341ec, which has exactly the
+ * same single-table arrangement.
+ *
+ * The Exynos7885 has no TSMUX/CMU_MFC block at all: the A307FN stock device
+ * tree has no tsmux or cmu_mfc node (checked against the decompiled stock
+ * dt_0.dts and all four dtbo overlays). These are therefore no-ops off
+ * 9810, which keeps regs_base_cmu_mfc NULL exactly as it was before
+ * ioremap() was ever reached, and keeps the two exported symbols available
+ * to their callers in tsmux_dev.c.
+ */
+void tsmux_ioremap_cmu_mfc_sfr(struct tsmux_device *tsmux_dev) {
+	(void)tsmux_dev;
+}
+
+void tsmux_print_cmu_mfc_sfr(struct tsmux_device *tsmux_dev) {
+	(void)tsmux_dev;
+}
+#endif
 
 uint32_t tsmux_get_hw_version(struct tsmux_device *tsmux_dev)
 {

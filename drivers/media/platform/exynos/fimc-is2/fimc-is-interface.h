@@ -56,8 +56,22 @@
 #define SENSOR_TIMEOUT_COUNT	2
 #define TRY_RECV_AWARE_COUNT	10000
 
-#define LOWBIT_OF(num)	(num >= 32 ? 0 : (u32)1<<num)
-#define HIGHBIT_OF(num)	(num >= 32 ? (u32)1<<(num-32) : 0)
+/*
+ * The shift count is masked with 31 so that the branch the ternary does not
+ * select is still a well-formed expression. Without the mask,
+ * LOWBIT_OF(PARAM_FD_OTF_INPUT) with an index of 39 leaves a literal
+ * (u32)1<<39 in the dead branch, which is a shift wider than u32 and clang
+ * rejects it under -Werror=shift-count-overflow even though the value is
+ * never taken. The same applies to the negative (num-32) in the dead branch
+ * of HIGHBIT_OF.
+ *
+ * The result is unchanged for every index this driver actually uses: for
+ * num < 32, (num & 31) == num, and for num >= 32 the ternary already yields 0.
+ * The added parentheses also make the macro safe for an argument that is
+ * itself an expression, which the unparenthesised "num >= 32" was not.
+ */
+#define LOWBIT_OF(num)	((num) >= 32 ? 0 : (u32)1 << ((num) & 31))
+#define HIGHBIT_OF(num)	((num) >= 32 ? (u32)1 << (((num) - 32) & 31) : 0)
 
 enum fimc_is_interface_state {
 	IS_IF_STATE_OPEN,
