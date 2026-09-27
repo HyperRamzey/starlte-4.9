@@ -19,22 +19,15 @@ source "drivers/gpu/arm/tHEx/Kconfig"
 endif
 if (SOC_EXYNOS7885)
 
-config MALI_TMIX
-	bool "Mali TMIX (mimir) support"
-	default n
-	help
-	  Enable this option to build support for the ARM Mali GPU found on
-	  Exynos 7885 / Exynos 7904 (Galaxy A30s), which is the r26p0 drop.
-
-choice
-	prompt "Version Configuration"
-	depends on MALI_TMIX
-	default MALI_TMIX_R26P0
-
+# The A30s (Exynos 7885 / 7904) carries a Midgard r26p0.  b_r26p0/Kconfig
+# already declares the real driver menu as MALI_MIDGARD, which is the name the
+# stock 4.4.177 exynos7885 config uses.  Do NOT introduce a second MALI_TMIX
+# here: tMIx/Kconfig defines MALI_TMIX as a tristate for the Exynos8895 mimir
+# r5p0, and kconfig parses every stanza regardless of the surrounding "if", so
+# a duplicate would silently pick a type and warn
+# "ignoring type redefinition of 'MALI_TMIX'".
 config MALI_TMIX_R26P0
-	bool "mimir r26p0 driver"
-
-endchoice
+	bool "Mali Midgard r26p0 driver (Exynos7885 / A30s)"
 
 source "drivers/gpu/arm/b_r26p0/Kconfig"
 endif

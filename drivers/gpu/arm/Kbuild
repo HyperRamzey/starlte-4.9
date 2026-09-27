@@ -13,9 +13,13 @@ ifeq ($(CONFIG_MALI_TMIX),y)
 	ifeq ($(CONFIG_MALI_TMIX_R5P0),y)
 		obj-y += tMIx/r5p0/
 	endif
-	ifeq ($(CONFIG_MALI_TMIX_R26P0),y)
-		obj-y += b_r26p0/
-	endif
+endif
+
+# b_r26p0/ is gated on MALI_TMIX_R26P0 alone, not on a MALI_TMIX umbrella:
+# MALI_TMIX belongs to the Exynos8895 mimir r5p0 drop and is not defined for
+# this SoC.  The per-object gate inside b_r26p0/Kbuild is CONFIG_MALI_MIDGARD.
+ifeq ($(CONFIG_MALI_TMIX_R26P0),y)
+	obj-y += b_r26p0/
 endif
 ifeq ($(CONFIG_MALI_THEX),y)
 	ifeq ($(CONFIG_MALI_THEX_R5P0),y)

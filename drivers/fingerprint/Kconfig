@@ -55,7 +55,7 @@ config SENSORS_ET5XX
 	  ET5XX module can support WOF mode.
 
 config SENSORS_ET7XX
-	stristate "ET7XX fingerprint sensor support"
+	tristate "ET7XX fingerprint sensor support"
 	default n
 	help
 	  If you say yes here you get support for Egistec's
