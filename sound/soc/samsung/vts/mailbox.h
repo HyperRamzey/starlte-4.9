@@ -67,6 +67,47 @@
 #define MAILBOX_SEMA0STATE		(0x01C8)
 #define MAILBOX_SEMA1CON		(0x01E0)
 #define MAILBOX_SEMA1STATE		(0x01E8)
+#elif defined(CONFIG_SOC_EXYNOS7885)
+/* Exynos7885 (A30s).  Byte-identical to the 4.4 A30s tree's
+ * sound/soc/samsung/vts/mailbox.h:16-40, which shipped these offsets
+ * UNCONDITIONALLY (4.4 had a single SoC, so needed no #ifdef) -- and they
+ * match the CONFIG_SOC_EXYNOS8895 block above, which upstream gta4xls and
+ * exynos9820 both carry identically.
+ *
+ * NOTE on MAILBOX_INT0_OFFSET / MAILBOX_INT1_OFFSET below: the 4.4 tree has
+ * these as (16) and (0), i.e. swapped relative to every other SoC.  That file
+ * was NEVER compiled on 7885 -- sound/soc/samsung/Makefile gates the whole
+ * vts/ directory on CONFIG_SND_SOC_SAMSUNG_VTS, and the live A30s
+ * running.config has "# CONFIG_SND_SOC_SAMSUNG_VTS is not set".  So the 4.4
+ * value is unexercised dead code, not measured silicon behaviour, and is
+ * deliberately NOT propagated here.  Both upstream trees (gta4xls 9810-lineage,
+ * lokey0905 exynos9820) agree on (0)/(16), as does the 4.9 port today.
+ */
+#define MAILBOX_MCUCTRL			(0x0000)
+#define MAILBOX_INTGR0			(0x0008)
+#define MAILBOX_INTCR0			(0x000C)
+#define MAILBOX_INTMR0			(0x0010)
+#define MAILBOX_INTSR0			(0x0014)
+#define MAILBOX_INTMSR0			(0x0018)
+#define MAILBOX_INTGR1			(0x001C)
+#define MAILBOX_INTCR1			(0x0020)
+#define MAILBOX_INTMR1			(0x0024)
+#define MAILBOX_INTSR1			(0x0028)
+#define MAILBOX_INTMSR1			(0x002C)
+#define MAILBOX_MIF_INIT		(0x004c)
+#define MAILBOX_IS_VERSION		(0x0050)
+#define MAILBOX_ISSR0			(0x0080)
+#define MAILBOX_ISSR1			(0x0084)
+#define MAILBOX_ISSR2			(0x0088)
+#define MAILBOX_ISSR3			(0x008C)
+#define MAILBOX_SEMAPHORE0		(0x0180)
+#define MAILBOX_SEMAPHORE1		(0x0184)
+#define MAILBOX_SEMAPHORE2		(0x0188)
+#define MAILBOX_SEMAPHORE3		(0x018C)
+#define MAILBOX_SEMA0CON			(0x01C0)
+#define MAILBOX_SEMA0STATE			(0x01C8)
+#define MAILBOX_SEMA1CON			(0x01E0)
+#define MAILBOX_SEMA1STATE			(0x01E8)
 #endif
 
 /* MAILBOX_MCUCTRL */

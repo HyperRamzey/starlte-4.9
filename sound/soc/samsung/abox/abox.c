@@ -92,6 +92,29 @@ static void update_mask_value(void __iomem *sfr,
 #define ABOX_CPU_STANDBY_WFI_MASK		(0x10000000)
 #define ABOX_CPU_OPTION				(0x4164)
 #define ABOX_CPU_OPTION_ENABLE_CPU_MASK		(0x10000000)
+#elif defined(CONFIG_SOC_EXYNOS7885)
+/* Exynos7885 (A30s, exynos7885-common).  Values are byte-identical to the
+ * 4.4 A30s tree, which is the only tree that ever ran this silicon:
+ *   sound/soc/samsung/abox/abox.c:69-81 of the 4.4 tree spells these
+ *   ABOX_CA7_CONFIGURATION / ABOX_CA7_STATUS / ABOX_CA7_OPTION at
+ *   0x2520 / 0x2524 / 0x2528 -- 4.9 renamed the CA7_* prefix to CPU_* at the
+ *   same addresses, so the 8895 block above and this block coincide.
+ */
+#define GPIO_MODE_ABOX_SYS_PWR_REG		(0x1308)
+#define PAD_RETENTION_ABOX_OPTION		(0x3048)
+#define ABOX_MAGIC				(0x0814)
+#define ABOX_MAGIC_VALUE			(0xAB0CAB0C)
+#define ABOX_CPU_CONFIGURATION			(0x2520)
+#define ABOX_CPU_LOCAL_PWR_CFG			(0x00000001)
+#define ABOX_CPU_STATUS				(0x2524)
+#define ABOX_CPU_STATUS_STATUS_MASK		(0x00000001)
+#define ABOX_CPU_STANDBY			ABOX_CPU_STATUS
+#define ABOX_CPU_STANDBY_WFE_MASK		(0x20000000)
+#define ABOX_CPU_STANDBY_WFI_MASK		(0x10000000)
+#define ABOX_CPU_OPTION				(0x2528)
+#define ABOX_CPU_OPTION_USE_STANDBYWFE_MASK	(0x00020000)
+#define ABOX_CPU_OPTION_USE_STANDBYWFI_MASK	(0x00010000)
+#define ABOX_CPU_OPTION_ENABLE_CPU_MASK		(0x00008000)
 #endif
 
 #define DEFAULT_CPU_GEAR_ID		(0xAB0CDEFA)
