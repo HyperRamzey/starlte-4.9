@@ -1,0 +1,8 @@
+# Samsung in-tree drivers.
+#
+# Port note: only the SCSC WLAN/BT transport is present in this tree.
+# gpio_debug/ and kic/ exist in the 4.4 donor but were not ported; they are
+# deliberately not sourced here so there is no dangling source.
+
+source "drivers/misc/samsung/scsc/Kconfig"
+source "drivers/misc/samsung/scsc_bt/Kconfig"
