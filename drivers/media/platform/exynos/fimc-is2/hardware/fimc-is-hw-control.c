@@ -1458,8 +1458,8 @@ void fimc_is_hardware_size_dump(struct fimc_is_hw_ip *hw_ip)
 	struct fimc_is_hardware *hardware;
 	u32 instance;
 
-	FIMC_BUG(!hw_ip);
-	FIMC_BUG(!hw_ip->hardware);
+	FIMC_BUG_VOID(!hw_ip);
+	FIMC_BUG_VOID(!hw_ip->hardware);
 
 	instance = atomic_read(&hw_ip->instance);
 	hardware = hw_ip->hardware;

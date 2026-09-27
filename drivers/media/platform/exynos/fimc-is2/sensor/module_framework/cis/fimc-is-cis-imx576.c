@@ -74,7 +74,7 @@ extern struct fimc_is_lib_support gPtr_lib_support;
 
 static void sensor_imx576_set_integration_max_margin(u32 mode, cis_shared_data *cis_data)
 {
-	FIMC_BUG(!cis_data);
+	FIMC_BUG_VOID(!cis_data);
 	cis_data->max_margin_coarse_integration_time = SENSOR_IMX576_COARSE_INTEGRATION_TIME_MAX_MARGIN;
 	dbg_sensor(1, "max_margin_coarse_integration_time(%d)\n",
 			cis_data->max_margin_coarse_integration_time);
@@ -82,7 +82,7 @@ static void sensor_imx576_set_integration_max_margin(u32 mode, cis_shared_data *
 
 static void sensor_imx576_set_integration_min(u32 mode, cis_shared_data *cis_data)
 {
-	FIMC_BUG(!cis_data);
+	FIMC_BUG_VOID(!cis_data);
 
 	if(IS_3DHDR(mode))
 	{
@@ -101,7 +101,7 @@ static void sensor_imx576_cis_data_calculation(const struct sensor_pll_info_comp
 	u32 vt_pix_clk_hz = 0;
 	u32 frame_rate = 0, max_fps = 0, frame_valid_us = 0;
 
-	FIMC_BUG(!pll_info);
+	FIMC_BUG_VOID(!pll_info);
 
 	/* 1. get pclk value from pll info */
 	vt_pix_clk_hz = pll_info->pclk;
@@ -162,11 +162,11 @@ void sensor_imx576_cis_data_calc(struct v4l2_subdev *subdev, u32 mode)
 	int ret = 0;
 	struct fimc_is_cis *cis = NULL;
 
-	FIMC_BUG(!subdev);
+	FIMC_BUG_VOID(!subdev);
 
 	cis = (struct fimc_is_cis *)v4l2_get_subdevdata(subdev);
-	FIMC_BUG(!cis);
-	FIMC_BUG(!cis->cis_data);
+	FIMC_BUG_VOID(!cis);
+	FIMC_BUG_VOID(!cis->cis_data);
 
 	if (mode > sensor_imx576_max_setfile_num) {
 		err("invalid mode(%d)!!", mode);

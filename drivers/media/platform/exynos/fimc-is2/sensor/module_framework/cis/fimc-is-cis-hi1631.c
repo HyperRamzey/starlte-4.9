@@ -95,7 +95,7 @@ static void sensor_hi1631_cis_data_calculation(const struct sensor_pll_info_comp
 	u32 total_line_length_pck = 0;
 	u32 frame_rate = 0, max_fps = 0, frame_valid_us = 0;
 
-	FIMC_BUG(!pll_info);
+	FIMC_BUG_VOID(!pll_info);
 
 	/* 1. get pclk value from pll info */
 	pixel_rate = pll_info->pclk * TOTAL_NUM_OF_MIPI_LANES;
@@ -1671,11 +1671,11 @@ void sensor_hi1631_cis_data_calc(struct v4l2_subdev *subdev, u32 mode)
 	int ret = 0;
 	struct fimc_is_cis *cis = NULL;
 
-	FIMC_BUG(!subdev);
+	FIMC_BUG_VOID(!subdev);
 
 	cis = (struct fimc_is_cis *)v4l2_get_subdevdata(subdev);
-	FIMC_BUG(!cis);
-	FIMC_BUG(!cis->cis_data);
+	FIMC_BUG_VOID(!cis);
+	FIMC_BUG_VOID(!cis->cis_data);
 
 	if (mode > sensor_hi1631_max_setfile_num) {
 		err("invalid mode(%d)!!", mode);

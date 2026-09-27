@@ -68,7 +68,7 @@ static void sensor_gc5035_cis_data_calculation(const struct sensor_pll_info_comp
 	u32 vt_pix_clk_hz = 0;
 	u32 frame_rate = 0, max_fps = 0, frame_valid_us = 0;
 
-	FIMC_BUG(!pll_info);
+	FIMC_BUG_VOID(!pll_info);
 
 	/* 1. get pclk value from pll info */
 	vt_pix_clk_hz = pll_info->pclk;

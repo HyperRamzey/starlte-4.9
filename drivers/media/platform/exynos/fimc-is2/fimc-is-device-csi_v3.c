@@ -121,14 +121,14 @@ static inline void csi_s_config_dma(struct fimc_is_device_csi *csi, struct fimc_
 
 static inline void csi_s_buf_addr(struct fimc_is_device_csi *csi, struct fimc_is_frame *frame, u32 index, u32 vc)
 {
-	FIMC_BUG(!frame);
+	FIMC_BUG_VOID(!frame);
 
 	csi_hw_s_dma_addr(csi->base_reg, vc, index, frame->dvaddr_buffer[0]);
 }
 
 static inline void csi_s_multibuf_addr(struct fimc_is_device_csi *csi, struct fimc_is_frame *frame, u32 index, u32 vc)
 {
-	FIMC_BUG(!frame);
+	FIMC_BUG_VOID(!frame);
 
 	csi_hw_s_multibuf_dma_addr(csi->base_reg, vc, index, frame->dvaddr_buffer[0]);
 }
@@ -204,7 +204,7 @@ static void csis_s_vc_dma_multibuf(struct fimc_is_device_csi *csi)
 
 		framemgr = GET_SUBDEV_FRAMEMGR(dma_subdev);
 
-		FIMC_BUG(!framemgr);
+		FIMC_BUG_VOID(!framemgr);
 
 		/* If error happened, return all processing frame to free */
 		if (test_bit((CSIS_BUF_ERR_VC0 + vc), &csi->state)) {
@@ -283,7 +283,7 @@ static void csis_flush_vc_buf_done(struct fimc_is_device_csi *csi, u32 vc,
 
 	device = container_of(csi->subdev, struct fimc_is_device_sensor, subdev_csi);
 
-	FIMC_BUG(!device);
+	FIMC_BUG_VOID(!device);
 
 	/* buffer done for several virtual ch 0 ~ 3, internal vc is skipped */
 	dma_subdev = csi->dma_subdev[vc];
@@ -296,8 +296,8 @@ static void csis_flush_vc_buf_done(struct fimc_is_device_csi *csi, u32 vc,
 	framemgr = GET_SUBDEV_FRAMEMGR(dma_subdev);
 	vctx = dma_subdev->vctx;
 
-	FIMC_BUG(!ldr_framemgr);
-	FIMC_BUG(!framemgr);
+	FIMC_BUG_VOID(!ldr_framemgr);
+	FIMC_BUG_VOID(!framemgr);
 
 	framemgr_e_barrier(framemgr, 0);
 
@@ -528,14 +528,14 @@ static void csi_dma_tag(struct v4l2_subdev *subdev,
 
 		/* get subdev and video context */
 		f_subdev = frame->subdev;
-		FIMC_BUG(!f_subdev);
+		FIMC_BUG_VOID(!f_subdev);
 
 		vctx = f_subdev->vctx;
-		FIMC_BUG(!vctx);
+		FIMC_BUG_VOID(!vctx);
 
 		/* get the leader's framemgr */
 		ldr_framemgr = GET_SUBDEV_FRAMEMGR(f_subdev->leader);
-		FIMC_BUG(!ldr_framemgr);
+		FIMC_BUG_VOID(!ldr_framemgr);
 
 		findex = frame->stream->findex;
 		ldr_frame = &ldr_framemgr->frames[findex];

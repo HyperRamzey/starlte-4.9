@@ -1437,7 +1437,7 @@ static int __init fimc_is_sensor_probe(struct platform_device *pdev)
 	struct fimc_is_device_sensor *device;
 	void *pdata;
 
-	FIMC_BUG(!pdev);
+	FIMC_BUG_VOID(!pdev);
 
 	if (fimc_is_dev == NULL) {
 		warn("fimc_is_dev is not yet probed(sensor)");
