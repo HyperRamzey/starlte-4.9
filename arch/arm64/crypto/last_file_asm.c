@@ -6,7 +6,16 @@ const unsigned char last_crypto_asm_rodata = 0x20;
 __attribute__ ((section(".text"), unused))
 void last_crypto_asm_text(void){}
 
-__attribute__ ((section(".init.text"), used, __optimize("-O0"), unused))
+/* Backport from xxmustafacooTR/exynos-linux-stable
+ * main@ffd1341ec75864d08a32e0523fe850a133f00d1a, which is a sibling fork of this
+ * exact base (4.9.219); main-ems@1589ebebbd2d916794ef068c7534e5b1274f01f6 carries the
+ * identical fix. clang does not implement optimize("-O0"), so under clang the
+ * attribute is dropped and the anchor is compiled at the file optimisation level,
+ * which is what let it be reordered away. Ask clang for nothing instead of asking
+ * for something it will not honour. CC_USE_CLANG is defined by the top-level
+ * Makefile on the same CLANG_FLAGS line as --target=. */
+#ifdef CC_USE_CLANG
+__attribute__ ((section(".init.text"), used, unused))
 /* `used` is load-bearing: these empty static functions are the FIPS
  * integrity boundary markers that scripts/crypto/fips_crypto_integrity.py
  * and scripts/fmp/fips_fmp_integrity.py look up by name to compute the HMAC
@@ -15,4 +24,7 @@ __attribute__ ((section(".init.text"), used, __optimize("-O0"), unused))
  * "AttributeError: 'NoneType' object has no attribute 'addr'". The sibling
  * first_*_text / first_*_rodata anchors survive only because they are
  * non-static, so they cannot be elided. Keep `used` here. */
+#else
+__attribute__ ((section(".init.text"), optimize("-O0"), unused))
+#endif
 static void last_crypto_asm_init(void){};
