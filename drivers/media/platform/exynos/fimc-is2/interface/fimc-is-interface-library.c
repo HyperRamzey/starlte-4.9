@@ -1829,8 +1829,8 @@ static void fimc_is_get_hybrid_fd_data(u32 instance,
 		return;
 	}
 
-	if (lib_vra->post_detection_enable[instance]) {
 #ifdef ENABLE_HYBRID_FD
+	if (lib_vra->post_detection_enable[instance]) {
 		struct fimc_is_lib_support *lib = &gPtr_lib_support;
 		u32 offset_region;
 		struct is_region *is_region;

@@ -940,7 +940,9 @@ int fimc_is_lib_vra_stop_instance(struct fimc_is_lib_vra *lib_vra, u32 instance)
 	}
 
 	lib_vra->all_face_num[instance] = 0;
+#ifdef ENABLE_HYBRID_FD
 	lib_vra->pdt_all_face_num[instance] = 0;
+#endif
 	lib_vra->af_all_face_num[instance] = 0;
 	clear_bit(VRA_INST_APPLY_TUNE_SET, &lib_vra->inst_state[instance]);
 
@@ -973,7 +975,9 @@ int fimc_is_lib_vra_stop(struct fimc_is_lib_vra *lib_vra)
 
 	for (i = 0; i < VRA_TOTAL_SENSORS; i++) {
 		lib_vra->all_face_num[i] = 0;
+#ifdef ENABLE_HYBRID_FD
 		lib_vra->pdt_all_face_num[i] = 0;
+#endif
 		lib_vra->af_all_face_num[i] = 0;
 		clear_bit(VRA_INST_APPLY_TUNE_SET, &lib_vra->inst_state[i]);
 	}
