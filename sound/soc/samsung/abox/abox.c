@@ -5607,6 +5607,29 @@ error:
 	return ret;
 }
 
+/*
+ * DEVIATION (port): restored verbatim in behaviour from the 4.4 A30s tree's
+ * abox.c:897-909, minus the dev_info read-back.  The exynos7885 COD3035 codec
+ * calls this from cod3035x_enable()/cod3035x_disable() to gate the codec's
+ * MCLK via UAIF2, and the 4.9 (Exynos9810) ABOX has no equivalent helper --
+ * it has no mclk symbol anywhere in abox/.
+ *
+ * Preconditions verified present in this file: p_abox_data (abox.c:122),
+ * ABOX_UAIF_CTRL0 and ABOX_UAIF2 (abox.h:196,434), and ABOX_UAIF_BASE is
+ * 0x0500 with ABOX_UAIF_INTERVAL 0x0010 -- byte-identical to the 4.4 header,
+ * so the register address is unchanged across the two SoC generations.
+ */
+void abox_enable_mclk(unsigned int on)
+{
+	struct abox_data *data = p_abox_data;
+
+	if (!data)
+		return;
+
+	regmap_write(data->regmap, ABOX_UAIF_CTRL0(ABOX_UAIF2), on ? 0x2 : 0x0);
+}
+EXPORT_SYMBOL(abox_enable_mclk);
+
 static int abox_disable(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
