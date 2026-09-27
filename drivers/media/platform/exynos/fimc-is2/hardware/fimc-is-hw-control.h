@@ -324,6 +324,7 @@ struct fimc_is_hw_ip_ops {
 	int (*delete_setfile)(struct fimc_is_hw_ip *hw_ip, u32 instance, ulong hw_map);
 	void (*size_dump)(struct fimc_is_hw_ip *hw_ip);
 	void (*clk_gate)(struct fimc_is_hw_ip *hw_ip, u32 instance, bool on, bool close);
+	int (*restore)(struct fimc_is_hw_ip *hw_ip, u32 instance);
 };
 
 /**

@@ -74,7 +74,6 @@ enum mcsc_block_set_ctrl {
 	TDNR_SET_DONE = 0,
 	DJAG_SET_DONE,
 	YSUM_SET_DONE,
-	DSVRA_SET_DONE,
 	ALL_BLOCK_SET_DONE = 0xFF,
 };
 
@@ -83,8 +82,9 @@ enum mcsc_block_set_ctrl {
 #define INTERPOLATE_NUMERATOR(Y1, Y2, diff_x_x1) \
 	(((Y2) - (Y1)) * (diff_x_x1)) << INTERPOLATE_SHIFT
 #define GET_LINEAR_INTERPOLATE_VALUE(Y1, Y2, diff_x2_x1, diff_x_x1) 		\
-	((INTERPOLATE_NUMERATOR((int)Y1, (int)Y2, diff_x_x1)) / (diff_x2_x1)) + \
-					(((int)(Y1) << INTERPOLATE_SHIFT))
+	(diff_x2_x1) ? (((INTERPOLATE_NUMERATOR((int)Y1, (int)Y2, diff_x_x1)) / (diff_x2_x1)) + \
+					(((int)(Y1) << INTERPOLATE_SHIFT))) :	\
+			(int)(Y1) << INTERPOLATE_SHIFT
 #define RESTORE_SHIFT_VALUE(value) ((int)(value) >> INTERPOLATE_SHIFT)
 
 /* DDK delivered NI to multiply 10 */
@@ -334,9 +334,6 @@ struct hw_api_scaler_setfile {
 	 * 1 : SCALER_OUTPUT_YUV_RANGE_NARROW
 	 */
 	scaler_setfile_contents contents[2];
-#ifdef MCSC_DNR_USE_TUNING
-	tdnr_setfile_contents tdnr_contents;
-#endif
 #ifdef MCSC_USE_DEJAG_TUNING_PARAM
 	/* Setfile tuning parameters for DJAG (Lhotse)
 	 * 0 : Scaling ratio = x1.0
@@ -345,6 +342,9 @@ struct hw_api_scaler_setfile {
 	 * 3 : Scaling ratio = x2.1~
 	 */
 	struct djag_setfile_contents djag_contents[MAX_SCALINGRATIOINDEX_DEPENDED_CONFIGS];
+#endif
+#ifdef MCSC_DNR_USE_TUNING
+	tdnr_setfile_contents tdnr_contents;
 #endif
 };
 
@@ -379,8 +379,8 @@ struct fimc_is_hw_mcsc_cap {
 };
 
 struct fimc_is_hw_mcsc {
-	struct	hw_api_scaler_setfile setfile[SENSOR_POSITION_END][FIMC_IS_MAX_SETFILE];
-	struct	hw_api_scaler_setfile *applied_setfile[SENSOR_POSITION_END];
+	struct	hw_api_scaler_setfile setfile[SENSOR_POSITION_MAX][FIMC_IS_MAX_SETFILE];
+	struct	hw_api_scaler_setfile *applied_setfile[SENSOR_POSITION_MAX][FIMC_IS_STREAM_COUNT];
 	struct	fimc_is_hw_mcsc_cap cap;
 
 	u32	in_img_format;
@@ -390,7 +390,7 @@ struct fimc_is_hw_mcsc {
 	int	yuv_range;
 	u32	instance;
 	ulong	out_en;
-	ulong	blk_set_ctrl[FIMC_IS_STREAM_COUNT];
+	ulong	blk_set_ctrl;
 
 	/* for tdnr use */
 	enum mcsc_output_index	tdnr_output;
@@ -403,14 +403,18 @@ struct fimc_is_hw_mcsc {
 
 	/* for Djag */
 	u32 djag_input_source;
+	u32 djag_prescale_ratio;
 	struct djag_setfile_contents djag_tunecfg;
+
+	/* for restore */
+	struct is_param_region	*back_param;
 };
 
 int fimc_is_hw_mcsc_probe(struct fimc_is_hw_ip *hw_ip, struct fimc_is_interface *itf,
 	struct fimc_is_interface_ischain *itfc, int id, const char *name);
 
 int fimc_is_hw_mcsc_update_param(struct fimc_is_hw_ip *hw_ip,
-	struct mcs_param *param, u32 lindex, u32 hindex, u32 instance);
+	struct mcs_param *param, u32 instance);
 void fimc_is_hw_mcsc_frame_done(struct fimc_is_hw_ip *hw_ip, struct fimc_is_frame *frame,
 	int done_type);
 int fimc_is_hw_mcsc_reset(struct fimc_is_hw_ip *hw_ip);
@@ -442,23 +446,24 @@ int fimc_is_hw_mcsc_adjust_output_img_fmt(u32 format, u32 plane, u32 order, u32 
 	bool *conv420_flag);
 int fimc_is_hw_mcsc_check_format(enum mcsc_io_type type, u32 format, u32 bit_width,
 	u32 width, u32 height);
-u32 fimc_is_scaler_get_idle_status(void __iomem *base_addr, u32 hw_id);
 
+void fimc_is_hw_mcsc_tdnr_init(struct fimc_is_hw_ip *hw_ip,
+	struct mcs_param *mcs_param, u32 instance);
 int fimc_is_hw_mcsc_update_tdnr_register(struct fimc_is_hw_ip *hw_ip,
 	struct fimc_is_frame *frame,
 	struct is_param_region *param,
 	bool start_flag);
+int fimc_is_hw_mcsc_recovery_tdnr_register(struct fimc_is_hw_ip *hw_ip,
+			struct is_param_region *param, u32 instance);
 
 int fimc_is_hw_mcsc_update_djag_register(struct fimc_is_hw_ip *hw_ip,
 		struct mcs_param *param,
 		u32 instance);
 int fimc_is_hw_mcsc_update_ysum_register(struct fimc_is_hw_ip *hw_ip,
-	struct fimc_is_group *head, struct mcs_param *mcs_param,
-	u32 instance, enum mcsc_port ysumport);
-
+	struct is_param_region *param, enum mcsc_port ysumport);
 int fimc_is_hw_mcsc_update_dsvra_register(struct fimc_is_hw_ip *hw_ip,
-	struct fimc_is_group *head, struct mcs_param *mcs_param,
-	u32 instance, enum mcsc_port dsvra_inport);
+	struct is_param_region *paramm, u32 instance, enum mcsc_port dsvra_inport);
+void fimc_is_hw_mcsc_djag_init(struct fimc_is_hw_ip *hw_ip);
 
 #ifdef DEBUG_HW_SIZE
 #define hw_mcsc_check_size(hw_ip, param, instance, output_id) \

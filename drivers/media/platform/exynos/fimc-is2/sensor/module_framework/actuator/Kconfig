@@ -60,6 +60,14 @@ config CAMERA_ACT_AK7372_OBJ
         help
           Use to build AK7372 driver.
 
+config CAMERA_ACT_DW9808_OBJ
+        bool "Use actuator DW9808"
+	depends on USE_DIRECT_IS_CONTROL
+	depends on CAMERA_ACT_SELECT
+        default n
+        help
+          Use to build DW9808 driver.
+
 config CAMERA_ACT_AK737X_OBJ
         bool "Use actuator AK737X"
 	depends on USE_DIRECT_IS_CONTROL
