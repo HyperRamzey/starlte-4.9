@@ -55,7 +55,18 @@ endif
 obj-$(CONFIG_EXYNOS_DEVICE_MIPI_CSIS) += fimc-is-device-csi.o
 obj-$(CONFIG_EXYNOS_DEVICE_MIPI_CSIS_VER2) += fimc-is-device-csi_v2.o
 obj-$(CONFIG_EXYNOS_DEVICE_MIPI_CSIS_VER3) += fimc-is-device-csi_v3.o
+# EXYNOS_DEVICE_MIPI_CSIS_VER4 is the Exynos9810 CSIS. Its object defines the
+# same globals as the v3 object (fimc_is_csi_probe, fimc_is_csi_open,
+# fimc_is_csi_close, fimc_is_csi_dma_probe, tasklet_csis_str_otf,
+# tasklet_csis_str_m2m), and sensor/Kconfig gives VER3 and VER4 the same
+# "depends on USE_SENSOR_GROUP", so nothing stops a config from
+# satisfying both. Building both produces multiple-definition errors at
+# link time. The 4.4 Exynos7885 tree has no VER4 symbol at all and selects
+# VER3 only. Gate the object on the SoC directly; a Kconfig select cannot
+# fool this and the A30s is SOC_EXYNOS7885.
+ifeq ($(filter y,$(CONFIG_SOC_EXYNOS9810)),)
 obj-$(CONFIG_EXYNOS_DEVICE_MIPI_CSIS_VER4) += fimc-is-device-csi_v4.o
+endif
 
 obj-$(CONFIG_EXYNOS_FIMC_BNS) += fimc-is-device-flite.o
 

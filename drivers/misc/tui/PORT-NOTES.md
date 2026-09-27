@@ -145,13 +145,19 @@ Changes vs 4.4 — four, all mandatory
 
  -Wall -Werror compliance (Makefile:392-397)
 ---------------------------------------------
-One more change was needed for the toolchain, not for the API: this tree
-builds with `-Wall -Werror`, and 4.4 did not, so a latent format defect
-became a hard error.
+One more change is a type correction rather than an API change.
 
  5. `stui_core.c:145`: `pr_err("... Unknown command %d\n", cmd)` where cmd is
-    `unsigned int`.  Changed to %u.  (clang's -Wformat is in -Wall, so this
-    was a guaranteed build break.)
+    `unsigned int`.  Changed to %u, the correct conversion specifier for the
+    type.  This tree builds with `-Wall -Werror` (Makefile:392-397) where 4.4
+    did not, so a `-Wformat` diagnostic here would be fatal rather than
+    cosmetic -- but I could NOT confirm that clang 24 actually emits one for
+    this case.  Compilers are off-limits for this task, and a same-line
+    survey of 3,462 already-built files under mm/, fs/, kernel/, net/ and
+    drivers/{gpu/drm,media/platform}/exynos turned up zero instances of the
+    pattern, which is equally consistent with upstream Linux being
+    -Wformat-clean by now.  The change is correct either way and is a no-op at
+    runtime.
 
 The weak-stub file also gained an explicit `#include <linux/errno.h>` for
 -ENODEV; it already reached printk.h transitively (it used pr_err) but not
