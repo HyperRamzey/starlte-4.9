@@ -1,0 +1,38 @@
+config EXYNOS_DECON_LCD
+	depends on EXYNOS_DECON_7885
+	bool "Select LCD panel driver"
+
+config DISPLAY_USE_INFO
+	tristate "Support display use info logging"
+	default n
+
+config EXYNOS_DECON_MDNIE
+	tristate "Support MDNIE"
+	default n
+
+config EXYNOS_DECON_MDNIE_LITE
+	depends on EXYNOS_DECON_MDNIE
+	tristate "Support backward compatibility for MDNIE"
+	default y
+
+config EXYNOS_DECON_MDNIE_CONTROL
+	bool "Samsung Exynos7885 Display colour controller"
+	default n
+
+config SUPPORT_POC_FLASH
+	depends on EXYNOS_DECON_LCD
+	tristate "Support display poc flash"
+	default n
+
+config CUSTOM_BACKLIGHT_SYSFS_NODE
+	bool "Custom sysfs node for backlight"
+	depends on EXYNOS_DECON_LCD_S6E8FC1_A30S
+	default n
+	help
+	  If you say yes here, you will get support for a custom backlight sysfs node.
+
+# The A30s panel. Live running.config:2924 CONFIG_EXYNOS_DECON_LCD_S6E8FC1_A30S=y,
+# and every other EXYNOS_DECON_LCD_* panel there is "not set".
+config EXYNOS_DECON_LCD_S6E8FC1_A30S
+	bool "S6E8FC1_A30S LCD driver"
+	depends on EXYNOS_DECON_LCD && EXYNOS_MIPI_DSIM

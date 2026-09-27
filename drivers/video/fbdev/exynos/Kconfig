@@ -4,3 +4,14 @@ source "drivers/video/fbdev/exynos/dpu_9810/Kconfig"
 source "drivers/video/fbdev/exynos/panel/Kconfig"
 
 endif # SOC_EXYNOS9810
+
+# PORT-NOTE(dpu_7885): Exynos7885 (Galaxy A30s) display stack. Sibling of
+# dpu_9810, NOT a descendant: measured against the 4.4 A30s tree the two DECON
+# register headers share only 36.8% of lines with 36 value conflicts, and the
+# DPP headers 46.3% / 17 conflicts, so dpu_9810's register blocks cannot be
+# reused. Live hardware binds 1x exynos-decon, 1x exynos-dsim, 4x exynos-dpp.
+if SOC_EXYNOS7885
+
+source "drivers/video/fbdev/exynos/dpu_7885/Kconfig"
+
+endif # SOC_EXYNOS7885
