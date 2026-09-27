@@ -993,11 +993,13 @@ static int mfc_register_resource(struct platform_device *pdev, struct s5p_mfc_de
 		dev_err(&pdev->dev, "failed to ioremap sysmmu1 address region\n");
 		goto err_ioremap_mmu1;
 	}
+#if MFC_HAVE_HWFC
 	dev->hwfc_base = ioremap(HWFC_BASE_ADDR, HWFC_SIZE);
 	if (dev->hwfc_base == NULL) {
 		dev_err(&pdev->dev, "failed to ioremap hwfc adddress region\n");
 		goto err_ioremap_hwfc;
 	}
+#endif
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
@@ -1016,8 +1018,10 @@ static int mfc_register_resource(struct platform_device *pdev, struct s5p_mfc_de
 
 err_req_irq:
 err_res_irq:
+#if MFC_HAVE_HWFC
 	iounmap(dev->hwfc_base);
 err_ioremap_hwfc:
+#endif
 	iounmap(dev->sysmmu1_base);
 err_ioremap_mmu1:
 	iounmap(dev->sysmmu0_base);
@@ -1242,7 +1246,9 @@ alloc_vdev_dec:
 err_v4l2_dev:
 	mutex_destroy(&dev->mfc_mutex);
 	free_irq(dev->irq, dev);
+#if MFC_HAVE_HWFC
 	iounmap(dev->hwfc_base);
+#endif
 	iounmap(dev->sysmmu1_base);
 	iounmap(dev->sysmmu0_base);
 	iounmap(dev->regs_base);
@@ -1287,7 +1293,9 @@ static int s5p_mfc_remove(struct platform_device *pdev)
 	iounmap(dev->sysmmu1_base);
 	iounmap(dev->sysmmu0_base);
 	iounmap(dev->regs_base);
+#if MFC_HAVE_HWFC
 	iounmap(dev->hwfc_base);
+#endif
 	release_mem_region(dev->mfc_mem->start, resource_size(dev->mfc_mem));
 	s5p_mfc_pm_final(dev);
 	kfree(dev);

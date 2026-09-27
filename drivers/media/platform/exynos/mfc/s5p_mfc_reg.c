@@ -77,10 +77,28 @@ void s5p_mfc_otf_set_stream_size(struct s5p_mfc_ctx *ctx, unsigned int size)
 
 void s5p_mfc_otf_set_hwfc_index(struct s5p_mfc_ctx *ctx, int job_id)
 {
-	struct s5p_mfc_dev *dev = ctx->dev;
-
 	mfc_debug(2, "OTF: set hwfc index, %d\n", job_id);
-	MFC_WRITEL_HWFC(job_id, HWFC_ENCODING_IDX);
+#if MFC_HAVE_HWFC
+	{
+		struct s5p_mfc_dev *dev = ctx->dev;
+
+		MFC_WRITEL_HWFC(job_id, HWFC_ENCODING_IDX);
+	}
+#else
+	/*
+	 * The Exynos7885 has no HWFC block, so there is no encoding-index
+	 * register to write.  This is the OTF (on-the-fly) path only and the
+	 * 4.4 A30s driver has no equivalent call, so doing nothing preserves
+	 * the shipping behaviour; mfc_err_ctx makes the condition visible
+	 * instead of pretending the write happened.
+	 *
+	 * 'dev' is declared inside the #if arm rather than at function scope
+	 * because MFC_WRITEL_HWFC() is the only user of it.  Leaving it at
+	 * function scope would make it set-but-undefined on a SoC with no
+	 * HWFC, which this tree rejects outright (-Werror).
+	 */
+	mfc_err_ctx("no HWFC block on this SoC, ignoring hwfc index %d\n", job_id);
+#endif
 }
 
 /* Set decoding frame buffer */

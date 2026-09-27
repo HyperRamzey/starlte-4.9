@@ -14,8 +14,50 @@
 #define __REGS_MFC_V10_H __FILE__
 
 /* SYSMMU Register */
+/*
+ * These three base addresses are silicon, not policy, so they differ per
+ * SoC.  The values that were here unconditionally are the Exynos9810 ones.
+ *
+ * The Exynos7885 (A30s) has ONE MFC SYSMMU and NO HWFC block.  Proof from
+ * the live device, not from source reading:
+ *
+ *   - /proc/iomem on the running 4.4 A30s kernel:
+ *         12c30000-12c3ffff : 12c30000.mfc0
+ *         12c50000-12c58fff : /sysmmu@12C50000
+ *     The 0x9000 span of that reserved region is exactly MFC_MMU_SIZE,
+ *     so 0x12C50000 is the MFC SYSMMU.
+ *   - The real decompiled board DT (stockfw/dtb/dt_0.dts:3240) declares
+ *     sysmmu_mfcmscl: sysmmu@12C50000.
+ *   - grep for 0x17880000 and 0x17628000 across dt_0.dts and all four
+ *     dtbo_*.dts: ZERO hits each.  They are not this SoC's peripherals.
+ *
+ * That matters beyond a stale diagnostic.  mfc_register_resource() used
+ * to ioremap() all three unconditionally and iounmap() them again on both
+ * error paths, and s5p_mfc_otf_set_hwfc_index() wrote HWFC_ENCODING_IDX
+ * through the HWFC mapping.  0x17880000 and 0x17628000 sit inside the
+ * A30s DRAM window, so arm64 ioremap() would hand back a writable alias
+ * of live RAM: the OTF job-id write becomes a RAM corruption, and the two
+ * fault-status reads in s5p_mfc_sysmmu_fault_handler() report whatever
+ * was in RAM.  If ioremap() had instead failed, probe aborted and there
+ * was no video codec at all.
+ *
+ * On 7885 MFC_MMU1_BASE_ADDR deliberately aliases MFC_MMU0_BASE_ADDR so
+ * that the existing single-MMU probe path keeps working untouched: the
+ * "else if (MFC_MMU1_...)" arm of s5p_mfc_sysmmu_fault_handler() becomes
+ * unreachable, which is the correct outcome for a single-MMU part.  No
+ * fault-handler logic was rewritten to achieve this.
+ *
+ * MFC_HAVE_HWFC gates the HWFC mapping, which the 7885 does not have.
+ */
+#if defined(CONFIG_SOC_EXYNOS7885)
+#define MFC_MMU0_BASE_ADDR					0x12C50000
+#define MFC_MMU1_BASE_ADDR					0x12C50000
+#define MFC_HAVE_HWFC						0
+#else
 #define MFC_MMU0_BASE_ADDR					0x17880000
 #define MFC_MMU1_BASE_ADDR					0x178A0000
+#define MFC_HAVE_HWFC						1
+#endif
 #define MFC_MMU_SIZE						0x9000
 
 #define MFC_MMU_INTERRUPT_STATUS				0x0060
@@ -23,10 +65,12 @@
 #define MFC_MMU_FAULT_TRANS_INFO_RW_MASK			0x100000
 #define MFC_MMU_FAULT_TRANS_INFO_AXID_MASK			0xFFFF
 
+#if MFC_HAVE_HWFC
 #define HWFC_BASE_ADDR						0x17628000
 #define HWFC_SIZE						0x100
 
 #define HWFC_ENCODING_IDX					0x4
+#endif
 
 /* Codec Common Registers */
 #define S5P_FIMV_RISC_ON					0x0000
