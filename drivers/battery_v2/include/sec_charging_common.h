@@ -69,6 +69,7 @@ enum power_supply_ext_property {
 	POWER_SUPPLY_EXT_PROP_MONITOR_WORK,
 	POWER_SUPPLY_EXT_PROP_MST_STATUS,
 	POWER_SUPPLY_EXT_PROP_JIG_GPIO,
+	POWER_SUPPLY_EXT_PROP_SRCCAP,
 };
 
 enum sec_battery_usb_conf {
