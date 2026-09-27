@@ -35,12 +35,34 @@ config CCIC_PDIC_NOTIFIER
 # usbpd_* entry points and fail at link.
 #
 # The measurement behind that decision, and the 4.14 evidence that Samsung
-# deleted this stack, are in the port report. In short: the A30s has a
-# micro-USB port (there is no Type-C connector node anywhere in the 7885
-# device tree, only dr_mode = "otg" on the DWC3), USB-PD is a Type-C
-# protocol, and the 4.14 Exynos9820 tree carries none of these five files.
+# deleted this stack, are in the port report.
 #
-# Leave this n unless someone wants the ported framework .c files too.
+# CORRECTION 2026-09-27 (CCIC/MUIC audit). An earlier revision of this comment
+# justified leaving CCIC_S2MU106 off by claiming "the A30s has a micro-USB
+# port ... USB-PD is a Type-C protocol". That reasoning was wrong, and the
+# conclusion has to be re-derived from the link error alone, because the next
+# wave will otherwise skip this subsystem as inapplicable hardware.
+#
+# The A30s is a USB Type-C phone and the PD stack is real. Three independent
+# confirmations:
+#   1. the live device has /sys/class/typec/port0, usb_typec_revision=1.2,
+#      DEVTYPE=typec_port, dual source/sink;
+#   2. the stock 4.4.177 A307FN config has CCIC_S2MU106=y and MUIC_S2MU106=y;
+#   3. the stock bootloader passes ccic_info=0x1 in chosen/bootargs.
+# The board device tree also carries usbpd_irq (gpa2-3), samsung,usb-notifier,
+# samsung,sec_detect_conn and pdic,usb_com_capable = <0x1>.
+#
+# What is genuinely absent is a *mainline* Type-C connector node, because
+# Samsung's own CCIC driver owns the port rather than drivers/usb/typec. That
+# is why the Type-C hardware is invisible to a mainline reading of the device
+# tree; it is NOT evidence that the port is not Type-C. Full USB-PD is
+# therefore mandatory for this board, not optional.
+#
+# So CCIC_S2MU106 must stay n only until the USB-PD framework is ported: the
+# framework contributes 6,212 + 1,659 + 757 + 651 = 9,279 lines across
+# usbpd_policy.c, usbpd_manager.c, usbpd_cc.c and usbpd.c, plus 4.4's 412-line
+# drivers/muic/muic_notifier.c for muic_ccic_notifier_register. On its own
+# s2mu106-usbpd.o leaves 15 symbols unresolved. Manifest in the audit report.
 config CCIC_NOTIFIER
 	bool "CCIC notifier support"
 	depends on I2C

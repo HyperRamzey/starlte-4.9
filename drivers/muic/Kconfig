@@ -71,10 +71,18 @@ config MUIC_UNIVERSAL_MAX77865
 
 config MUIC_HV
 	bool "MUIC_HV"
-	depends on MUIC_UNIVERSAL
+	depends on USE_MUIC
 	default n
 	help
 	  If you say yes here you will get support for the AFC.
+	  DERP PORT NOTE: 4.4 exynos7885 says "depends on USE_MUIC"
+	  here. The 4.9 max77865 generation narrowed it to MUIC_UNIVERSAL,
+	  which makes the symbol unreachable for the S2MU106 AFC path --
+	  HV_MUIC_S2MU106_AFC below needs MUIC_HV. Widening it back to
+	  USE_MUIC changes no 4.9 resolution: every configuration that
+	  resolved MUIC_HV=y already had MUIC_UNIVERSAL=y, and
+	  MUIC_UNIVERSAL still depends on USE_MUIC, so the new condition
+	  is strictly weaker than the old one.
 
 config MUIC_HV_12V
 	bool "MUIC_HV_12V"
@@ -142,3 +150,97 @@ config MUIC_SM5508
 	help
 	  If you say yes here you will get support for the SM5508 MUIC chip.
 	  
+
+
+# ---------------------------------------------------------------------------
+# DERP PORT: the Samsung S2MU106 MUIC generation (4.4 exynos7885, Galaxy A30s)
+# ---------------------------------------------------------------------------
+#
+# The 4.9 base (starlte, exynos9810) forked before Samsung's Type-C S2MU106
+# MUIC existed; it ships the max77705 / MUIC_UNIVERSAL generation instead.
+# drivers/muic/{muic_core,muic_manager,s2mu106-muic,s2mu106-muic-afc}.c have
+# been ported from 4.4 but had no Kconfig to switch them on, so all four were
+# orphans: no Makefile rule reached any of them and none of the 4.4-only
+# symbols existed.
+#
+# MUTUAL EXCLUSION IS LOAD-BEARING, NOT COSMETIC. The two generations export
+# the same global names, so linking both is a hard duplicate-symbol failure.
+# Measured without a compiler, definition sites only:
+#
+#   get_switch_sel              muic-core.c:382   vs muic_core.c:244
+#   get_afc_mode                muic-core.c:403   vs muic_core.c:266
+#   get_ccic_info               muic-core.c:426   vs muic_manager.c:139
+#   muic_send_dock_intent       muic-core.c:75    vs muic_core.c:77
+#   muic_afc_set_voltage        muic-core.c:493   vs s2mu106-muic-afc.c:723
+#
+# The depends-on lines below make the impossible combination unresolvable in
+# Kconfig instead of letting it reach the linker. Turning MUIC_MAX77705 and
+# MUIC_UNIVERSAL off is independently the right configuration for this board:
+# the real A307FN device tree contains no MAX77xxx node anywhere (see
+# hm_mod/port49_evidence/stockfw/STOCKFW_FINDINGS.md 3.3), and the stock
+# 4.4.177 config has MUIC_S2MU106 = y with no MAX77705 = y at all.
+
+config MUIC_CORE
+	bool "Supports MUIC Core (S2MU106 generation)"
+	depends on USE_MUIC
+	default n
+	help
+	  4.4's name for drivers/muic/muic_core.c, the S2MU106 MUIC core
+	  layer. Do not confuse it with the max77705-generation
+	  drivers/muic/muic-core.c, which is a different file and is gated
+	  on the legacy chips in drivers/muic/Makefile.
+
+config MUIC_MANAGER
+	bool "MUIC Manager supports CCIC chip interface"
+	depends on USE_MUIC && MUIC_CORE
+	default n
+	help
+	  Builds drivers/muic/muic_manager.c. This is the layer that turns a
+	  muic_attached_dev_t into a power-supply property and routes RID
+	  opens. 18 muic_manager_* symbols are present in the live 4.4 A30s
+	  kallsyms, so it is not dead scaffolding.
+
+config MUIC_S2MU106
+	bool "Using S2MU106 MUIC"
+	depends on USE_MUIC && MFD_S2MU106
+	depends on !MUIC_MAX77705 && !MUIC_UNIVERSAL
+	default n
+	help
+	  If you say yes here you will get support for the S2MU106 MUIC chip.
+	  4.4 gates this on USE_MUIC && MFD_S2MU106. The second depends-on
+	  line is the DERP port's mutual exclusion with the max77705 /
+	  MUIC_UNIVERSAL generation, which cannot be linked alongside it;
+	  see the note above this block.
+
+config HV_MUIC_S2MU106_AFC
+	bool "Using S2MU106 MUIC AFC"
+	depends on MUIC_HV && MUIC_S2MU106
+	default n
+	help
+	  If you say yes here you will get support for the AFC.
+
+config MUIC_S2MU106_RID
+	bool "Using S2MU106 MUIC RID"
+	depends on MUIC_S2MU106
+	default n
+	help
+	  If you say yes here you will get support for the S2MU106 MUIC RID
+	  functions.
+
+config MUIC_SUPPORT_POWERMETER
+	bool "MUIC supports PM chip interface"
+	depends on USE_MUIC
+	default n
+	help
+	  If you say yes here you will get support for the Power Meter.
+	  A pure #ifdef feature in 4.4: no Makefile rule, no extra object.
+	  Under it s2mu106-usbpd.c reads POWER_SUPPLY_PROP_VCC1 / _VCC2 and
+	  the CHGIN voltage from the PM_S2MU106 power meter.
+
+config MUIC_SUPPORT_PRSWAP
+	bool "MUIC supports power role swap"
+	depends on USE_MUIC
+	default n
+	help
+	  If you say yes here you will get support for the power role swap.
+	  A pure #ifdef feature in 4.4: no Makefile rule, no extra object.
