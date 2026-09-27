@@ -1492,6 +1492,89 @@ EXTRA_CFLAGS += $(call cc-option, -Wmaybe-uninitialized)
 # DHDCFLAGS above re-adds -Wall, and ccflags-y is appended after KBUILD_CFLAGS,
 # so any -Wno- added in the top-level Makefile is undone for every file in this
 # directory. Re-assert the ones this tree needs, here, where they come last.
+# -Wno-date-time: dhd_common.c:226 builds dhd_version[] as
+#     "Dongle Host Driver, version " EPI_VERSION_STR DHD_COMPILED
+#     " on " __DATE__ " at " __TIME__;
+# which is the only __DATE__/__TIME__ in this directory (verified by grep) and
+# yields two diagnostics from one line, one per macro. __DATE__/__TIME__ are
+# not defects here: they are the deliberate build stamp of the DHD_DEBUG
+# version string, and the #if defined(DHD_DEBUG) arm is always taken because
+# EXTRA_CFLAGS below appends -DDHD_DEBUG unconditionally. There is no rewrite
+# that keeps the string and drops the macros, and deleting the stamp would
+# change what this string reports, so the warning class is suppressed rather
+# than the code changed.
+# Root cause, precisely: it is not that the warning class is new to this tree,
+# it is that Makefile:1089 of THIS tree carries
+#     KBUILD_CFLAGS += $(call cc-option,-Werror=date-time)
+# and cc-option only tests whether the driver ACCEPTS the spelling, not whether
+# the warning is useful. Clang 24 accepts it, so it expands to the positive
+# form and the __DATE__ above becomes a hard error under -Werror. The 4.4 A30s
+# tree has no date-time line in its Makefile at all, so this is a 4.9-side
+# addition, and it lands in the top-level KBUILD_CFLAGS at position 47 of the
+# 61 -W flags in the b11 command line -- i.e. BEFORE the -Wall at position 57
+# that this directory contributes, which is why neither the tree-wide
+# suppressions nor anything in the top-level suppression block can turn it off
+# for this directory. The trailing -Wno-date-time below is the last warning flag
+# on the command line and therefore wins.
+# This is deliberately UNCONDITIONAL, not a thirteenth per-SoC conditional:
+# the ten -Wno-date-time blocks already in this file are each gated on some
+# other SoC (EXYNOS8890 x2, 7570, 8895, 7870, 9820, MSM8996, MSM8998, SDM845,
+# SM8150) and none of them fires for SOC_EXYNOS7885, which is why a stock
+# 7885 build reached dhd_common.c:226 and died. Suppressing here covers every
+# SoC in the tree, present and future, from one line.
+# The two flags below are re-assertions of suppressions the top level already
+# applies tree-wide, both of which the -Wall in this directory silently undoes.
+# Evidence for the ordering, from the real b11 command line recorded in
+# obj_a30s/drivers/net/wireless/bcmdhd_100_15/.dhd_ip.o.cmd -- 61 -W flags
+# total, positions below are 1-based and counted out of that file:
+#   2  -Wall                      top-level KBUILD_CFLAGS:392
+#   9  -Wno-unused-but-set-variable    top-level Makefile:407
+#  19  -Wno-parentheses-equality      top-level Makefile:468
+#  26  -Wno-tautological-overlap-compare  top-level Makefile:530
+#  27  -Wno-unused-const-variable    top-level Makefile:531
+#  37  -Wframe-larger-than=4096      Makefile:945
+#  47  -Werror=date-time            Makefile:1089
+#  56  -Wno-frame-larger-than       Makefile:1127, correctly after 37
+#  57  -Wall                      this directory, DHDCFLAGS:30
+#  58  -Wstrict-prototypes         this directory
+#  59  -Wunused-but-set-variable   this directory, EXTRA_CFLAGS:1490
+#  60  -Wno-tautological-overlap-compare   this directory re-assert
+#  61  -Wno-unused-const-variable  this directory re-assert
+#  (62-64 after this patch: the three flags added below)
+# So the last six flags on the command line are 57-61, all of them this
+# directory, and everything the top level or arch/arm64 asked for sits at 2-56,
+# ahead of all of them. That is the whole reason the fix belongs here and not
+# in the top-level suppression block: the -Wall at 57 would undo a top-level
+# -Wno-parentheses-equality at 19, and the -Werror=date-time at 47 outranks
+# any -Wno-date-time placed before 47.
+# -Wno-unused-but-set-variable: this is worse than merely undone. The vendor
+# line EXTRA_CFLAGS += $(call cc-option, -Wunused-but-set-variable) (this file,
+# line 1490) evaluates to the positive flag -- cc-option probes only whether
+# the driver ACCEPTS the spelling, and clang does -- so ccflags-y positively
+# RE-ENABLES a warning that Makefile:407 deliberately suppresses tree-wide.
+# Under -Werror that turns a latent warning in any of this directory remaining
+# files into a build stop. Re-asserting the tree intent, not inventing a policy.
+# The sibling line 1491, $(call cc-option, -Wmaybe-uninitialized), does NOT
+# appear on the command line at all -- clang does not accept that GCC-style
+# spelling as a standalone flag, so cc-option returns empty and it is inert.
+# -Wno-parentheses-equality: Makefile:468 suppresses it, -Wall re-enables it
+# (it is a sub-flag of -Wparentheses, which -Wall includes), and this directory
+# has 28 real triggers for a 7885 build, in five files:
+#   wl_cfg80211.c 11, wl_cfgnan.c 6, wl_cfgvendor.c 4, wl_cfgscan.c 4,
+#   dhd_linux.c 3
+# for example dhd_linux.c:6892 "if (skip_reset == false)",
+# dhd_linux.c:7660 "return (ifp && (ifp->static_if == true))",
+# wl_cfgvendor.c:5720/5724/5729, wl_cfgscan.c:1223/1398/1757.
+# These compile as written; == true/false is correct C and clang only objects
+# to the redundant form. Rewriting 28 sites to invert the operands is a
+# behaviour-neutral but wide diff across vendor files, so the class is
+# suppressed instead, matching what the tree already does tree-wide.
+# -Wlogical-not-parentheses (Makefile:468, also re-enabled by -Wall) was
+# checked in the same pass and has zero sites here, so it is deliberately not
+# added. -Wbitwise-instead-of-logical (Makefile:448) was also checked: the only
+# single & or | in boolean contexts in this directory are on integer bitmasks
+# (bcmevent.c:289 short_subtype & 0x80, dhd_ip.c:1007 TCP_FLAG_PSH, ...), which
+# is the correct use, so it is not added either.
 # -Wno-tautological-overlap-compare: wl_android.c:8981 reads
 #     if ((adps_mode < 0) && (1 < adps_mode))
 # which can never be true -- a value cannot be both below 0 and above 1. The
@@ -1510,7 +1593,8 @@ EXTRA_CFLAGS += $(call cc-option, -Wmaybe-uninitialized)
 # configurations that do compile those paths -- deleting them would break
 # DHD_PKTDUMP_ROAM and DHD_STATUS_LOGGING builds. Suppressed, not deleted, for
 # the same reason as the top-level -Wno-unused-const-variable.
-EXTRA_CFLAGS += -Wno-tautological-overlap-compare -Wno-unused-const-variable
+EXTRA_CFLAGS += -Wno-tautological-overlap-compare -Wno-unused-const-variable \
+	-Wno-unused-but-set-variable -Wno-parentheses-equality -Wno-date-time
 KBUILD_CFLAGS += -I$(LINUXDIR)/include -I$(CURDIR)
 
 DHDOFILES := dhd_pno.o dhd_common.o dhd_ip.o dhd_custom_gpio.o dhd_custom_sec.o \
