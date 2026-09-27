@@ -47,8 +47,24 @@
 
 /* MALI_SEC_INTEGRATION */
 /* [HACK] Should check status in LT(4.9) otherwise fence timeout occur frequently */
-//#if (KERNEL_VERSION(4, 9, 68) <= LINUX_VERSION_CODE)
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE)
+/* The struct member was renamed status -> error in 4.9 ("fence: rename
+ * status to error"), not in 4.10 as the vendor drop's threshold assumed, so a
+ * 4.9 tree was selecting the pre-rename spelling and failing to compile:
+ *
+ *   mali_kbase_fence_defs.h:54: error: no member named 'status' in 'struct fence'
+ *
+ * Measured on the two trees this drop is being built between:
+ *   4.4 exynos7885 include/linux/fence.h:81  int status;
+ *   4.9 9810/starlte  include/linux/fence.h:83  int error;
+ *
+ * 4.9's own accessor agrees on the spelling and on the ?: 1 fallback:
+ *   include/linux/fence.h:390  return fence->error ?: 1;
+ *
+ * The commented-out 4.9.68 line from the vendor drop is deliberately NOT
+ * restored: 4.9.68 is a stable-point number, not the kernel series, and
+ * nothing in this tree can distinguish it at preprocessor time.
+ */
 #define dma_fence_get_status(a) (fence_is_signaled(a) ? (a)->error ?: 1 : 0)
 #else
 #define dma_fence_get_status(a) (fence_is_signaled(a) ? (a)->status ?: 1 : 0)
