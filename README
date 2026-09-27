@@ -1,4 +1,74 @@
-        Linux kernel release 4.x <http://kernel.org/>
+<!-- 4.9-PORT-STATUS-BEGIN -->
+# 4.9 PORT BUILD STATUS — Exynos7885 / Galaxy A30s (SM-A307FN)
+
+**This block is local work-in-progress. The README below it is the original Samsung
+upstream document and is unmodified.**
+
+| | |
+|---|---|
+| **Target** | Galaxy A30s, Exynos7885, crDroid 16, 4.4.302-p6 → **4.9.219** |
+| **Branch** | `crdroid-port-4.9` |
+| **Base** | `exynos-linux-stable/starlte` `tw10-android-4.9-q` (`8a9b2212`) |
+| **Status** | **IN PROGRESS — no green build yet** |
+
+## Build progress
+
+| metric | value |
+|---|---|
+| **Objects compiled** | **3,336** |
+| `Image` | **not produced** — link stage never reached |
+| `defconfig` target | `rc=0`, **0 errors, 0 warnings**, stable under `streamline_config.pl` |
+| Commits on the vendor base | **120** |
+| Files changed | 100 files, +16,364 / −756 |
+| Toolchain | Neutron Clang 24 (target) + pinned `clang-r563880c` (host), `-Werror` |
+
+Per-subsystem objects actually produced — the real measure of progress:
+
+| subtree | objects | subsystem |
+|---|---|---|
+| `drivers/media/platform/exynos` | 150 | FIMC-IS v6.20 camera + 4 A30s sensors + DW9808 |
+| `drivers/misc/samsung` | 41 | SCSC core transport (mx140) |
+| `drivers/net/wireless/scsc` | 25 | SCSC WLAN |
+| `drivers/muic` | 20 | S2MU106 MUIC / AFC |
+| `drivers/ccic` | 19 | USB Type-C PD (10,345 lines) |
+| `drivers/battery_v2` | 12 | S2MU106 charger / fuel gauge |
+| `drivers/sensors` | 11 | A30s sensor stack |
+| `drivers/gpu/arm/b_r26p0` | 11 | **Mali Midgard r26p0** |
+| `drivers/video/fbdev/exynos/dpu_7885` | 6 | DECON / DSIM / DPP + S6E8FC1 |
+| `drivers/power` | 5 | S2MU106 power |
+| `drivers/vision` | 4 | IVA — being removed, wrong SoC |
+
+## What is done
+
+- **Ground truth extracted from stock Samsung firmware**: the real 4.4.177 `.config`
+  (1,689 symbols, recovered from the boot image's embedded IKCONFIG), the real 5 decompiled
+  DTBs (base + the four `A30S EUR OPEN` overlays), SCSC firmware and TEEGRIS TA manifests.
+- **Architecture corrected against that ground truth**: Exynos7885 (not a 7904 die);
+  6×A53 + 2×A55; Mali-**G71 MP2 = Midgard r26p0**; **USB Type-C with a real PD stack**
+  (stock `bootargs` pass `ccic_info=0x1`); SCSC mx140 WiFi with
+  **`CONFIG_BT` not set** (SCSC provides the whole Bluetooth stack); all-Samsung S2MU106
+  power, with no Qualcomm PMIC anywhere in the DT.
+- **Ported and compiling**: SCSC WiFi/BT, USB Type-C PD, S2MU106 MUIC/charger, the A30s
+  sensor stack, ET7XX fingerprint, FIMC-IS v6.20 with IMX576/GC5035/HI1631/4HA, the
+  7885 display stack, the 7885 audio machine with COD3035, and Mali r26p0.
+- **Defconfig converged**: 166 changes across 140 symbols against the stock config. Most
+  ported driver code was already present but *unselected*, or selected in a form that does
+  not exist for this SoC.
+
+## Top open blockers
+
+1. `iovmm_map_oto` / `iovmm_unmap_oto` are in no 4.9 header — 3 errors in `dpp_drv.c`.
+   Backport source already located.
+2. The DTS is **missing every per-sensor camera node**; the drivers are correct but
+   nothing will probe.
+3. `include/linux/usb_notify.h` lacks `NOTIFY_EVENT_RESERVE_BOOSTER`.
+4. Two defconfig lines now need adjusting (DW9808 actuator on, TSMUX off).
+
+Full detail, the extraction recipes, the backport-source caveats, and a record of the
+corrections made along the way: **[`4.9port.md`](4.9port.md)**.
+
+<!-- 4.9-PORT-STATUS-END -->
+
 
 These are the release notes for Linux version 4.  Read them carefully,
 as they tell you what this is all about, explain how to install the
