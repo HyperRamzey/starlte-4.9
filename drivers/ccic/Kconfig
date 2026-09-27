@@ -4,6 +4,43 @@
 
 comment "CCIC configs"
 
+config CCIC_S2MU106
+	bool "Using S2MU106 USB PD"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  for the S2MU106 USBPD chip.
+
+config CCIC_PDIC_NOTIFIER
+	bool "S2MU106 CCIC attach/detach notifier"
+	depends on USE_MUIC
+	default n
+	help
+	  The s2m_pdic_notifier_* attach/detach broadcast chain. This is the
+	  notifier the S2MU106 MUIC driver publishes cable attach and detach
+	  on, and it is what drivers/muic/s2mu106-muic.c and muic_manager.c
+	  reach through MUIC_SEND_NOTI_TO_CCIC_ATTACH / _DETACH. It is not
+	  part of USB-PD and is needed whether or not CONFIG_CCIC_S2MU106 is
+	  set.
+	  This is the s2m_ family and is distinct from the CCIC_NOTIFIER
+	  chain, which serves the max77705 / s2mm005 CCIC parts.
+
+# CONFIG_CCIC_S2MU106 is NOT wired to the USB-PD framework on purpose.
+#
+# The 4.4 tree gates the whole PD stack on a symbol called USE_CCIC, which
+# builds usbpd.o, usbpd_cc.o, usbpd_policy.o, usbpd_manager.o, pdic_notifier.o
+# and ccic_misc.o. No USE_CCIC symbol exists in this 4.9 tree, so setting
+# CONFIG_CCIC_S2MU106 here would build s2mu106-usbpd.o with 12 unresolved
+# usbpd_* entry points and fail at link.
+#
+# The measurement behind that decision, and the 4.14 evidence that Samsung
+# deleted this stack, are in the port report. In short: the A30s has a
+# micro-USB port (there is no Type-C connector node anywhere in the 7885
+# device tree, only dr_mode = "otg" on the DWC3), USB-PD is a Type-C
+# protocol, and the 4.14 Exynos9820 tree carries none of these five files.
+#
+# Leave this n unless someone wants the ported framework .c files too.
 config CCIC_NOTIFIER
 	bool "CCIC notifier support"
 	depends on I2C
