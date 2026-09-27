@@ -20,6 +20,7 @@
 #ifdef CONFIG_MALI_SEC_JOB_STATUS_CHECK
 
 #include "backend/gpu/mali_kbase_jm_rb.h"
+#include "device/mali_kbase_device.h"
 
 #if defined(CONFIG_SYNC)
 int gpu_job_fence_status_dump(struct sync_fence *timeout_fence);
@@ -83,10 +84,10 @@ int gpu_job_fence_status_dump(struct sync_fence *timeout_fence)
 
 	/* dev_warn(dev,"GPU JOB STATUS DUMP\n"); */
 
-	kbdev_list = kbase_dev_list_get();
+	kbdev_list = kbase_device_get_list();
 
 	if (kbdev_list == NULL) {
-		kbase_dev_list_put(kbdev_list);
+		kbase_device_put_list(kbdev_list);
 		return -ENODEV;
 	}
 
@@ -94,7 +95,7 @@ int gpu_job_fence_status_dump(struct sync_fence *timeout_fence)
 		kbdev = list_entry(entry, struct kbase_device, entry);
 
 		if (kbdev == NULL) {
-			kbase_dev_list_put(kbdev_list);
+			kbase_device_put_list(kbdev_list);
 			return -ENODEV;
 		}
 
@@ -151,7 +152,7 @@ int gpu_job_fence_status_dump(struct sync_fence *timeout_fence)
 	if (timeout_fence != NULL)
 		dev_warn(dev, "Timeout Fence *** [%p] %s: %s\n", timeout_fence, timeout_fence->name, gpu_fence_status_to_string(atomic_read(&timeout_fence->status)));
 
-	kbase_dev_list_put(kbdev_list);
+	kbase_device_put_list(kbdev_list);
 
 	return 0;
 } /* #if defined(CONFIG_SYNC) */

@@ -69,12 +69,11 @@ static struct attribute *kprcs_attrs[] = {
 	&dma_buf_gpu_mem_attr.attr,
 	NULL
 };
-ATTRIBUTE_GROUPS(kprcs);
 
 static struct kobj_type kprcs_ktype = {
 	.release = kbase_kprcs_release,
 	.sysfs_ops = &kobj_sysfs_ops,
-	.default_groups = kprcs_groups,
+	.default_attrs = kprcs_attrs,
 };
 
 /**
