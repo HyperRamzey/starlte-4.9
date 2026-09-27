@@ -928,7 +928,33 @@ static int init_constraint_table_ect(struct exynos_cpufreq_domain *domain,
 	bool valid_row = false;
 	int ret;
 
-	if (dm->c.constraint_dm_type != DM_MIF)
+#ifdef CONFIG_SOC_EXYNOS7885
+	/*
+	 * derp-4.9-port: Exynos7885 (Galaxy A30s) needs a hard-coded
+	 * INT/MIF constraint floor for a handful of cluster frequencies: the ECT
+	 * MINLOCK table does not describe the validated INT floor for those
+	 * levels. These are the values the running 4.4 A30s kernel uses.
+	 */
+	static const int bc_freq[] = {
+		2496000, 2392000, 2288000, 2184000, 2080000, 1976000, 1872000,
+		1768000, 1664000, 1560000, 936000, 728000, 520000, 312000,
+	};
+	static const int lc_freq[] = {
+		2002000, 1898000, 1794000, 1690000, 1586000, 1482000, 1248000,
+		1014000, 902000, 839000, 757000, 676000, 546000, 449000, 343000,
+	};
+	static const int cc_freq[] = {
+		1352000, 1144000, 208000,
+	};
+#endif
+
+	/*
+	 * derp-4.9-port: DM_INT is required by the A30s device tree,
+	 * which carries an 'int-freq' guidance node with dm-type = DM_INT.
+	 * Rejecting it silently drops the INT constraint for the A53 cluster.
+	 */
+	if (dm->c.constraint_dm_type != DM_MIF &&
+	    dm->c.constraint_dm_type != DM_INT)
 		return -EINVAL;
 
 	ret = of_property_read_string(dn, "ect-name", &ect_name);
@@ -964,6 +990,65 @@ static int init_constraint_table_ect(struct exynos_cpufreq_domain *domain,
 		if (!valid_row)
 			dm->c.freq_table[index].constraint_freq
 				= ect_domain->level[0].sub_frequencies;
+
+#ifdef CONFIG_SOC_EXYNOS7885
+		/*
+		 * derp-4.9-port: Override the ECT-derived constraint for the
+		 * 7885 frequencies that 4.4 pins explicitly. A DM_INT row is the INT
+		 * floor for the A53 cluster; a DM_MIF row is the MIF floor.
+		 */
+		if (dm->c.constraint_dm_type == DM_INT) {
+			int i;
+
+			/* Big cores' specific frequencies */
+			for (i = 0; i <= 6; i++)
+				if (freq == bc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 1794000;
+			for (i = 7; i <= 8; i++)
+				if (freq == bc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 1539000;
+			if (freq == bc_freq[9])
+				dm->c.freq_table[index].constraint_freq = 1352000;
+			if (freq == bc_freq[10])
+				dm->c.freq_table[index].constraint_freq = 676000;
+			for (i = 11; i <= 12; i++)
+				if (freq == bc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 546000;
+			if (freq == bc_freq[13])
+				dm->c.freq_table[index].constraint_freq = 420000;
+
+			/* Little cores' specific frequencies */
+			for (i = 0; i <= 6; i++)
+				if (freq == lc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 1014000;
+			if (freq == lc_freq[7])
+				dm->c.freq_table[index].constraint_freq = 845000;
+			for (i = 8; i <= 9; i++)
+				if (freq == lc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 676000;
+			for (i = 10; i <= 11; i++)
+				if (freq == lc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 546000;
+			for (i = 12; i <= 13; i++)
+				if (freq == lc_freq[i])
+					dm->c.freq_table[index].constraint_freq
+						= 420000;
+
+			/* Common frequencies for big and little cores */
+			if (freq == cc_freq[0])
+				dm->c.freq_table[index].constraint_freq = 1014000;
+			if (freq == cc_freq[1])
+				dm->c.freq_table[index].constraint_freq = 845000;
+			if (freq == cc_freq[2])
+				dm->c.freq_table[index].constraint_freq = 420000;
+		}
+#endif
 	}
 
 	return 0;
@@ -1096,6 +1181,55 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 
 	domain->boot_freq = cal_dfs_get_boot_freq(domain->cal_id);
 	domain->resume_freq = cal_dfs_get_resume_freq(domain->cal_id);
+
+#ifdef CONFIG_SOC_EXYNOS7885
+	/*
+	 * derp-4.9-port: Exynos7885 (Galaxy A30s) validated frequency
+	 * envelope, ported from the 4.4 A30s kernel.
+	 *
+	 * The 4.4 tree overrides max/boot/resume with hard-coded per-domain values
+	 * and carries this comment verbatim:
+	 *
+	 *     // Disable 1794000 as it's causing issues.
+	 *     if (domain->max_freq == 1794000)
+	 *             domain->max_freq = 1690000;
+	 *
+	 * i.e. the 1.794 GHz A53 point and the 2.288 GHz A55 point advertised by the
+	 * device tree are both known-bad on this part. The stock 4.9 code would take
+	 * min(CAL_max, dt max-freq) and therefore permit both.
+	 *
+	 * Clamped rather than assigned: 4.4 assigns unconditionally, which would
+	 * *raise* max_freq if CAL ever reported something below the cap. Clamping
+	 * gives the same result on this device and is strictly safer.
+	 *
+	 * domain 0 = cpus 0-5 = 6x Cortex-A53 (dt max-freq 1794000) -> 1690000
+	 * domain 1 = cpus 6-7 = 2x Cortex-A55 (dt max-freq 2288000) -> 2080000
+	 */
+	{
+		unsigned int cap_max = 0, cap_boot = 0, cap_resume = 0;
+
+		if (domain->id == 0) {
+			cap_max = 1690000;
+			cap_boot = 1690000;
+			cap_resume = 1144000;
+		} else if (domain->id == 1) {
+			cap_max = 2080000;
+			cap_boot = 2080000;
+			cap_resume = 1560000;
+		}
+
+		if (cap_max) {
+			domain->max_freq = min(domain->max_freq, cap_max);
+			domain->boot_freq = min(domain->boot_freq, cap_boot);
+			domain->resume_freq = min(domain->resume_freq,
+						 cap_resume);
+#ifdef CONFIG_SEC_PM
+			domain->max_usable_freq =
+				min(domain->max_usable_freq, cap_max);
+#endif
+		}
+	}
+#endif
 
 	ufc_domain_init(domain);
 
