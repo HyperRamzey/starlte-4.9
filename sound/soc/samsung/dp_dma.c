@@ -42,8 +42,16 @@
 
 #ifdef CONFIG_SOC_EXYNOS8895
 #define DP_FIFO                        (0x11090838)
-#elif CONFIG_SOC_EXYNOS9810
+#elif defined(CONFIG_SOC_EXYNOS9810)
 #define DP_FIFO                        (0x11095818)
+#else
+/* The Exynos7885 (A30s) has no DisplayPort controller and therefore no DP
+ * FIFO. dp_dma.c is the DisplayPort audio path; it has no meaning here and
+ * there is no correct address to substitute. Its Kconfig entry cannot express
+ * this on its own because SND_SOC_SAMSUNG_EXYNOS8895/_9810 `select` it, and a
+ * select overrides `depends on`. So the refusal lives here.
+ */
+#error "dp_dma.c requires a SoC with a DisplayPort controller (8895 or 9810)"
 #endif
 
 #define RX_SRAM_SIZE		(0x2000)	/* 8 KB */

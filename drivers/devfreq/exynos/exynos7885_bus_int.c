@@ -100,7 +100,7 @@ static int exynos7885_devfreq_int_init_freq_table(struct exynos_devfreq_data *da
 	unsigned long tmp_max, tmp_min;
 	struct dev_pm_opp *target_opp;
 	u32 flags = 0;
-	int i, ret = 0;
+	int i;
 
 	max_freq = 533000;
 	if (!max_freq) {
