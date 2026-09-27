@@ -967,8 +967,25 @@ err_ccic_alloc:
 	return NULL;
 }
 
+/*
+ * 4.4 declares this EMPTY, and it is left empty on purpose here.
+ *
+ * With num_properties == 0 the power supply registers with no properties, so
+ * muic_manager_get_property() / _set_property() below are never invoked by
+ * the framework. The live 4.4 A30s kernel behaves the same way: both are
+ * present in kallsyms only as local symbols
+ * (muic_manager_get_property.llvm.7902044400055082657, and the _set_ twin),
+ * and the AFC charger mode is read from the battery driver instead.
+ *
+ * Populating this array would advertise muic-manager/uevent with a property
+ * the running 4.4 system never exposed, i.e. a userspace-visible behaviour
+ * change with no evidence behind it. Kept faithful; the two callbacks are
+ * retained because they still have to compile, which is why the
+ * POWER_SUPPLY_PROP_VBUS and POWER_SUPPLY_EXT_PROP_CURRENT_MEASURE
+ * enumerators are needed in include/linux/power_supply.h -- see the
+ * SHARED-HUNK in the port report.
+ */
 static enum power_supply_property muic_props[] = {
-	POWER_SUPPLY_PROP_AFC_CHARGER_MODE,
 };
 
 static char *muic_supplied_to[] = {
