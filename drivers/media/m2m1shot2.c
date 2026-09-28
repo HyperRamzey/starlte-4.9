@@ -21,6 +21,7 @@
 #include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#include <linux/sync_file.h>
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
 #include <linux/compat.h>
@@ -37,8 +38,8 @@
 #define M2M1SHOT2_FENCE_MASK (M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE |		\
 					M2M1SHOT2_IMGFLAG_RELEASE_FENCE)
 
-static void m2m1shot2_fence_callback(struct sync_file *fence,
-					struct sync_file_waiter *waiter);
+static void m2m1shot2_fence_callback(struct fence *fence,
+					struct fence_cb *cb);
 
 static void m2m1shot2_timeout_handler(unsigned long arg);
 
@@ -94,13 +95,19 @@ static int m2m1shot2_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = ctx;
 
+	/*
+	 * 4.9 has no sync_file_waiter_init(). struct fence_cb is initialised
+	 * inline instead, mirroring what the 4.4 sw_sync init did: an empty
+	 * list head plus the callback to invoke.
+	 */
 	for (ret = 0; ret < M2M1SHOT2_MAX_IMAGES; ret++) {
 		ctx->source[ret].img.index = ret;
-		sync_file_waiter_init(&ctx->source[ret].img.waiter,
-					m2m1shot2_fence_callback);
+		INIT_LIST_HEAD(&ctx->source[ret].img.cb.node);
+		ctx->source[ret].img.cb.func = m2m1shot2_fence_callback;
 	}
 	ctx->target.index = M2M1SHOT2_MAX_IMAGES;
-	sync_file_waiter_init(&ctx->target.waiter, m2m1shot2_fence_callback);
+	INIT_LIST_HEAD(&ctx->target.cb.node);
+	ctx->target.cb.func = m2m1shot2_fence_callback;
 
 	ret = m21dev->ops->init_context(ctx);
 	if (ret)
@@ -118,7 +125,7 @@ static int m2m1shot2_open(struct inode *inode, struct file *filp)
 
 	return 0;
 err_init:
-	sync_timeline_destroy(ctx->timeline);
+	sync_timeline_put(ctx->timeline);
 err_timeline:
 	kfree(ctx);
 	return ret;
@@ -208,7 +215,7 @@ static void m2m1shot2_put_image(struct m2m1shot2_context *ctx,
 		 * confirm the fence callback is not called after img->fence is
 		 * cleared by the deferred behavior of fput().
 		 */
-		sync_file_cancel_async(img->fence, &img->waiter);
+		fence_remove_callback(img->fence->fence, &img->cb);
 		fput(img->fence->file);
 		img->flags &= ~M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE;
 	}
@@ -357,7 +364,7 @@ static void m2m1shot2_unmap_images(struct m2m1shot2_context *ctx)
 				&ctx->target, DMA_FROM_DEVICE, flush_all);
 
 	if (flush_all && !(ctx->m21dev->attr & M2M1SHOT2_DEVATTR_COHERENT))
-		flush_all_cpu_caches();
+		flush_cache_all();
 }
 
 static int m2m1shot2_map_image(struct m2m1shot2_device *m21dev,
@@ -444,7 +451,7 @@ static void m2m1shot2_cachesync_images(struct m2m1shot2_context *ctx)
 
 	if (test_bit(M2M1S2_CTXSTATE_CACHECLEANALL, &ctx->state) ||
 			test_bit(M2M1S2_CTXSTATE_CACHEFLUSHALL, &ctx->state)) {
-		flush_all_cpu_caches();
+		flush_cache_all();
 		return;
 	}
 
@@ -562,12 +569,16 @@ static void m2m1shot2_schedule_queuework(struct kref *kref)
 	BUG_ON(failed);
 }
 
-/* NOTE that this function is called under irq disabled context */
-static void m2m1shot2_fence_callback(struct sync_file *fence,
-					struct sync_file_waiter *waiter)
+/*
+ * NOTE that this function is called under irq disabled context. 4.9's
+ * fence_signal() runs fence_add_callback() callbacks inline, under the
+ * signalling fence's own spinlock, in the context of whoever signals it.
+ */
+static void m2m1shot2_fence_callback(struct fence *fence,
+					struct fence_cb *cb)
 {
 	struct m2m1shot2_context_image *img =
-		container_of(waiter, struct m2m1shot2_context_image, waiter);
+		container_of(cb, struct m2m1shot2_context_image, cb);
 	unsigned long ptr = (unsigned long)img;
 	struct m2m1shot2_context *ctx;
 	unsigned long flags;
@@ -659,15 +670,15 @@ static void m2m1shot2_timeout_handler(unsigned long arg)
 
 	for (i = 0; i < ctx->num_sources; i++) {
 		if (image[i].img.flags & M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE) {
-			sync_file_cancel_async(image[i].img.fence,
-						&image[i].img.waiter);
+			fence_remove_callback(image[i].img.fence->fence,
+						&image[i].img.cb);
 			image[i].img.flags &= ~M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE;
 			fput(image[i].img.fence->file);
 		}
 	}
 
 	if (!!(ctx->target.flags & M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE)) {
-		sync_file_cancel_async(ctx->target.fence, &ctx->target.waiter);
+		fence_remove_callback(ctx->target.fence->fence, &ctx->target.cb);
 		ctx->target.flags &= ~M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE;
 		fput(ctx->target.fence->file);
 	}
@@ -762,7 +773,7 @@ static void m2m1shot2_destroy_context(struct work_struct *work)
 
 	m2m1shot2_cancel_context(ctx);
 
-	sync_timeline_destroy(ctx->timeline);
+	sync_timeline_put(ctx->timeline);
 
 	spin_lock(&ctx->m21dev->lock_priority);
 	ctx->m21dev->prior_stats[ctx->priority] -= 1;
@@ -1076,7 +1087,7 @@ static int m2m1shot2_get_buffer(struct m2m1shot2_context *ctx,
 static bool m2m1shot2_check_fence_wait(struct m2m1shot2_context *ctx,
 					unsigned int fence_count,
 					struct sync_file *fence,
-					struct sync_file_waiter *waiter)
+					struct fence_cb *cb)
 {
 	unsigned int i;
 	int ret;
@@ -1087,16 +1098,17 @@ static bool m2m1shot2_check_fence_wait(struct m2m1shot2_context *ctx,
 	}
 
 	/*
-	 * Always increase ctx->starter before sync_file_wait_async().
-	 * If waiter registration is failed (ret < 0)
-	 * or already signaled (ret == 1). it will be just decreased.
+	 * Always increase ctx->starter before fence_add_callback().
+	 * If waiter registration fails (ret < 0) or the fence is already
+	 * signaled (ret == -ENOENT), it will be just decreased.
 	 */
 	kref_get(&ctx->starter);
-	ret = sync_file_wait_async(fence, waiter);
-	if (ret < 0 || ret == 1) {
-		if (ret < 0)
+	ret = fence_add_callback(fence->fence, cb, m2m1shot2_fence_callback);
+	if (ret) {
+		/* -ENOENT means already signaled: the normal fast path */
+		if (ret != -ENOENT)
 			dev_err(ctx->m21dev->dev,
-					"Error occurred in an acquire fence\n");
+				"Error occurred in an acquire fence (%d)\n", ret);
 		kref_put(&ctx->starter, m2m1shot2_context_schedule_start);
 		fput(fence->file);
 		return false;
@@ -1220,7 +1232,7 @@ static int m2m1shot2_get_sources(struct m2m1shot2_context *ctx,
 
 			if (!m2m1shot2_check_fence_wait(ctx, i,
 						image[i].img.fence,
-						&image[i].img.waiter))
+						&image[i].img.cb))
 				image[i].img.flags &=
 					~M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE;
 		}
@@ -1334,7 +1346,7 @@ static int m2m1shot2_get_target(struct m2m1shot2_context *ctx,
 		}
 
 		if (!m2m1shot2_check_fence_wait(ctx, ctx->num_sources,
-					   img->fence, &img->waiter))
+					   img->fence, &img->cb))
 			img->flags &= ~M2M1SHOT2_IMGFLAG_ACQUIRE_FENCE;
 	}
 

@@ -96,8 +96,9 @@ struct m2m1shot2_context_format {
  * @fmt		: image format information given by the userspace
  * @memory	: memory type of all buffers in @plane
  * @plane	: buffer information of all planes of the image
- * @waiter: waiter object of @fence of the image to support for
- *		  asynchronous fence waiter
+ * @cb	: fence callback object of @fence of the image to support for
+ *		  asynchronous fence waiter. The callback is registered on the
+ *		  underlying @fence->fence with fence_add_callback().
  * @fence	: acquire fence of the image. The image processing deos not
  *		  start until @fence is signaled.
  */
@@ -110,7 +111,7 @@ struct m2m1shot2_context_image {
 	unsigned int			num_planes;
 	struct m2m1shot2_dma_buffer	plane[M2M1SHOT2_MAX_PLANES];
 
-	struct sync_file_waiter	waiter;
+	struct fence_cb		cb;
 	struct sync_file		*fence;
 };
 
