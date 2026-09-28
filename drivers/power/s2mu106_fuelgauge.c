@@ -1797,17 +1797,6 @@ static int s2mu106_fg_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SCOPE:
 		val->intval = fuelgauge->mode;
 		break;
-	case POWER_SUPPLY_PROP_SOH:
-#if (BATCAP_LEARN)
-		fuelgauge->soh = s2mu106_get_soh(fuelgauge);
-		val->intval = fuelgauge->soh;
-#else
-		/* If battery capacity learning is not enabled,
-		 * return SOH is 100%
-		 */
-		val->intval = 100;
-#endif
-		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
 		val->intval = fuelgauge->pdata->capacity_full * fuelgauge->raw_capacity;
 		break;
@@ -1816,17 +1805,35 @@ static int s2mu106_fg_get_property(struct power_supply *psy,
 		/*
 			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
 			* private extended window. Its endpoints are members of
-			* enum power_supply_ext_property, not of the enum this switch is
-			* over, so they are not legal case labels here -- and the range
-			* would additionally swallow POWER_SUPPLY_PROP_SOH (360), which is
-			* an explicit arm above. Dispatch the window by value from default:,
-			* after the explicit arms so they keep priority; a core property
-			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+			* enum power_supply_ext_property, not of enum power_supply_property,
+			* so neither that range nor any property inside it is a legal case
+			* label on a switch over psp. The window is contiguous with the shared
+			* window handled by the arm above, so it is dispatched by value from
+			* default: through the inner switch.
+			*
+			* Each bound is compared within a single enum, never across the two:
+			* psp against POWER_SUPPLY_PROP_MAX (enum power_supply_property), and
+			* ext_psp against POWER_SUPPLY_EXT_PROP_S2MU106_MAX (enum
+			* power_supply_ext_property). ext_psp holds the same value as psp -- it
+			* is that value re-typed for the inner switch -- so both tests are plain
+			* integer threshold tests over in-range values of one enum, and a core
+			* property (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
 		*/
 		if (psp < POWER_SUPPLY_PROP_MAX ||
-				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+				ext_psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
 			return -EINVAL;
 		switch (ext_psp) {
+		case POWER_SUPPLY_EXT_PROP_SOH:
+#if (BATCAP_LEARN)
+			fuelgauge->soh = s2mu106_get_soh(fuelgauge);
+			val->intval = fuelgauge->soh;
+#else
+			/* If battery capacity learning is not enabled,
+			 * return SOH is 100%
+			 */
+			val->intval = 100;
+#endif
+			break;
 		case POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY:
 			val->intval = calc_ttf_to_full_capacity(fuelgauge, val);
 			break;
@@ -1903,14 +1910,22 @@ static int s2mu106_fg_set_property(struct power_supply *psy,
 			/*
 				* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
 				* private extended window. Its endpoints are members of
-				* enum power_supply_ext_property, not of the enum this switch is
-				* over, so they are not legal case labels here. Dispatch the window
-				* by value from default:, after the explicit arms so they keep
-				* priority; a core property (psp < POWER_SUPPLY_PROP_MAX) still
-				* returns -EINVAL.
+				* enum power_supply_ext_property, not of enum power_supply_property,
+				* so neither that range nor any property inside it is a legal case
+				* label on a switch over psp. The window is contiguous with the shared
+				* window handled by the arm above, so it is dispatched by value from
+				* default: through the inner switch.
+				*
+				* Each bound is compared within a single enum, never across the two:
+				* psp against POWER_SUPPLY_PROP_MAX (enum power_supply_property), and
+				* ext_psp against POWER_SUPPLY_EXT_PROP_S2MU106_MAX (enum
+				* power_supply_ext_property). ext_psp holds the same value as psp -- it
+				* is that value re-typed for the inner switch -- so both tests are plain
+				* integer threshold tests over in-range values of one enum, and a core
+				* property (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
 			*/
 			if (psp < POWER_SUPPLY_PROP_MAX ||
-					psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+					ext_psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
 				return -EINVAL;
 			switch (ext_psp) {
 			case POWER_SUPPLY_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING:

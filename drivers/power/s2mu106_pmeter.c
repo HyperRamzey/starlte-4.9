@@ -318,16 +318,23 @@ static int s2mu106_pm_get_property(struct power_supply *psy,
 	default:
 		/*
 			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
-			* private extended window. It sits directly above
-			* POWER_SUPPLY_EXT_PROP_MAX, but its endpoints are members of
+			* private extended window. Its endpoints are members of
 			* enum power_supply_ext_property, not of enum power_supply_property,
-			* so they cannot be case labels on a switch over psp. The window is
-			* contiguous with the shared window handled by the arm above, so
-			* dispatch it by value from default: instead; a core property
-			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+			* so neither that range nor any property inside it is a legal case
+			* label on a switch over psp. The window is contiguous with the shared
+			* window handled by the arm above, so it is dispatched by value from
+			* default: through the inner switch.
+			*
+			* Each bound is compared within a single enum, never across the two:
+			* psp against POWER_SUPPLY_PROP_MAX (enum power_supply_property), and
+			* ext_psp against POWER_SUPPLY_EXT_PROP_S2MU106_MAX (enum
+			* power_supply_ext_property). ext_psp holds the same value as psp -- it
+			* is that value re-typed for the inner switch -- so both tests are plain
+			* integer threshold tests over in-range values of one enum, and a core
+			* property (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
 		*/
 		if (psp < POWER_SUPPLY_PROP_MAX ||
-				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+				ext_psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
 			return -EINVAL;
 		switch (ext_psp) {
 		case POWER_SUPPLY_PROP_VCHGIN:
@@ -387,16 +394,23 @@ static int s2mu106_pm_set_property(struct power_supply *psy,
 	default:
 		/*
 			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
-			* private extended window. It sits directly above
-			* POWER_SUPPLY_EXT_PROP_MAX, but its endpoints are members of
+			* private extended window. Its endpoints are members of
 			* enum power_supply_ext_property, not of enum power_supply_property,
-			* so they cannot be case labels on a switch over psp. The window is
-			* contiguous with the shared window handled by the arm above, so
-			* dispatch it by value from default: instead; a core property
-			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+			* so neither that range nor any property inside it is a legal case
+			* label on a switch over psp. The window is contiguous with the shared
+			* window handled by the arm above, so it is dispatched by value from
+			* default: through the inner switch.
+			*
+			* Each bound is compared within a single enum, never across the two:
+			* psp against POWER_SUPPLY_PROP_MAX (enum power_supply_property), and
+			* ext_psp against POWER_SUPPLY_EXT_PROP_S2MU106_MAX (enum
+			* power_supply_ext_property). ext_psp holds the same value as psp -- it
+			* is that value re-typed for the inner switch -- so both tests are plain
+			* integer threshold tests over in-range values of one enum, and a core
+			* property (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
 		*/
 		if (psp < POWER_SUPPLY_PROP_MAX ||
-				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+				ext_psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
 			return -EINVAL;
 		switch (ext_psp) {
 		case POWER_SUPPLY_PROP_CO_ENABLE:

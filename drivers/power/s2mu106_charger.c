@@ -969,23 +969,6 @@ static int s2mu106_chg_set_property(struct power_supply *psy,
 					__func__, value.intval);
 		}
 		break;
-#ifndef CONFIG_SEC_FACTORY
-	case POWER_SUPPLY_PROP_FACTORY_MODE:
-		if (val->intval) {
-			pr_debug("%s : 523K, 301K, 255K\n", __func__);
-			s2mu106_update_reg(charger->i2c, 0x88, 0x00, 0x20);
-			s2mu106_write_reg(charger->i2c, 0xF3, 0x06);
-			s2mu106_update_reg(charger->i2c, 0x8C, 0x80, 0x80);
-			s2mu106_update_reg(charger->i2c, 0x90, 0x04, 0x04);
-		} else {
-			pr_debug("%s : 619K, OPEN\n", __func__);
-			s2mu106_update_reg(charger->i2c, 0x88, 0x20, 0x20);
-			s2mu106_write_reg(charger->i2c, 0xF3, 0x00);
-			s2mu106_update_reg(charger->i2c, 0x8C, 0x00, 0x80);
-			s2mu106_update_reg(charger->i2c, 0x90, 0x00, 0x04);
-		}
-		break;
-#endif
 	case POWER_SUPPLY_PROP_AFC_CHARGER_MODE:
 		s2mu106_set_charging_efficiency(charger, val->intval);
 		break;
@@ -1055,16 +1038,6 @@ static int s2mu106_chg_set_property(struct power_supply *psy,
 			s2mu106_update_reg(charger->i2c, 0x88, 0x00, 0x20);
 		}
 		break;
-	case POWER_SUPPLY_PROP_FUELGAUGE_RESET:
-		s2mu106_read_reg(charger->i2c, 0xE3, &data);
-		data |= 0x03 << 6;
-		s2mu106_write_reg(charger->i2c, 0xE3, data);
-		msleep(1000);
-		data &= ~(0x03 << 6);
-		s2mu106_write_reg(charger->i2c, 0xE3, data);
-		msleep(50);
-		pr_debug("%s: reset fuelgauge when surge occur!\n", __func__);
-		break;
 	case POWER_SUPPLY_PROP_ENERGY_AVG:
 		regmode_vote(charger, REG_MODE_BUCK_OFF_FOR_FLASH, REG_MODE_BUCK_OFF_FOR_FLASH);
 		if (val->intval) {
@@ -1081,18 +1054,51 @@ static int s2mu106_chg_set_property(struct power_supply *psy,
 		/*
 			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
 			* private extended window. Its endpoints are members of
-			* enum power_supply_ext_property, not of the enum this switch is
-			* over, so they are not legal case labels here -- and the range
-			* would additionally swallow POWER_SUPPLY_PROP_FACTORY_MODE (359)
-			* and POWER_SUPPLY_PROP_FUELGAUGE_RESET (357), which are explicit
-			* arms above. Dispatch the window by value from default:, after the
-			* explicit arms so they keep priority; a core property
-			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+			* enum power_supply_ext_property, not of enum power_supply_property,
+			* so neither that range nor any property inside it is a legal case
+			* label on a switch over psp. The window is contiguous with the shared
+			* window handled by the arm above, so it is dispatched by value from
+			* default: through the inner switch.
+			*
+			* Each bound is compared within a single enum, never across the two:
+			* psp against POWER_SUPPLY_PROP_MAX (enum power_supply_property), and
+			* ext_psp against POWER_SUPPLY_EXT_PROP_S2MU106_MAX (enum
+			* power_supply_ext_property). ext_psp holds the same value as psp -- it
+			* is that value re-typed for the inner switch -- so both tests are plain
+			* integer threshold tests over in-range values of one enum, and a core
+			* property (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
 		*/
 		if (psp < POWER_SUPPLY_PROP_MAX ||
-				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+				ext_psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
 			return -EINVAL;
 		switch (ext_psp) {
+		case POWER_SUPPLY_EXT_PROP_FUELGAUGE_RESET:
+			s2mu106_read_reg(charger->i2c, 0xE3, &data);
+			data |= 0x03 << 6;
+			s2mu106_write_reg(charger->i2c, 0xE3, data);
+			msleep(1000);
+			data &= ~(0x03 << 6);
+			s2mu106_write_reg(charger->i2c, 0xE3, data);
+			msleep(50);
+			pr_debug("%s: reset fuelgauge when surge occur!\n", __func__);
+			break;
+#ifndef CONFIG_SEC_FACTORY
+		case POWER_SUPPLY_EXT_PROP_FACTORY_MODE:
+			if (val->intval) {
+				pr_debug("%s : 523K, 301K, 255K\n", __func__);
+				s2mu106_update_reg(charger->i2c, 0x88, 0x00, 0x20);
+				s2mu106_write_reg(charger->i2c, 0xF3, 0x06);
+				s2mu106_update_reg(charger->i2c, 0x8C, 0x80, 0x80);
+				s2mu106_update_reg(charger->i2c, 0x90, 0x04, 0x04);
+			} else {
+				pr_debug("%s : 619K, OPEN\n", __func__);
+				s2mu106_update_reg(charger->i2c, 0x88, 0x20, 0x20);
+				s2mu106_write_reg(charger->i2c, 0xF3, 0x00);
+				s2mu106_update_reg(charger->i2c, 0x8C, 0x00, 0x80);
+				s2mu106_update_reg(charger->i2c, 0x90, 0x00, 0x04);
+			}
+			break;
+#endif
 		case POWER_SUPPLY_EXT_PROP_FACTORY_VOLTAGE_REGULATION:
 			/* enable EN_JIG_AP */
 			pr_debug("%s: factory voltage regulation (%d)\n", __func__, val->intval);
