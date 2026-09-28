@@ -1,0 +1,34 @@
+# TEMPORARY bring-up instrumentation. Delete this whole directory once the
+# 4.9 port's boot hang is found -- see drivers/p49debug/p49-bootbeacon.c.
+config P49_BOOTBEACON
+	bool "4.9 port boot beacon (TEMPORARY, panics on purpose)"
+	depends on DEBUG_KERNEL || !EXPERT
+	help
+	  TEMPORARY. This kernel has never booted and there is no console
+	  available (no serial cable, CONFIG_VT off so no framebuffer console,
+	  and the bootloader's "ecd_setup=disable" turns Samsung's ECD off after
+	  CONFIG_CMDLINE is applied, so it cannot be overridden). A hang is
+	  therefore completely invisible.
+
+	  Enabling this makes the kernel panic deliberately at the end of
+	  device probing, so that the pstore ramoops backend records the log up to
+	  that point. Read it afterwards with:
+
+	    adb pull /sys/fs/pstore/dmesg-ramoops-0
+
+	  It is paired with turning CONFIG_PSTORE_CONSOLE off, because with pmsg
+	  writing continuously into the same buffer there is no room left for the
+	  panic-time dmesg record -- which is why no dmesg-ramoops record has ever
+	  appeared despite the kernel plainly dying.
+
+	  If unsure, say N. This must not survive into a shipping kernel.
+
+config P49_BOOTBEACON_MS
+	int "Boot beacon delay in ms"
+	depends on P49_BOOTBEACON
+	default 10000
+	help
+	  How long after late_initcall the beacon waits before panicking. Raise it
+	  to let more of boot complete before the panic; lower it toward 0 to
+	  bisect an early hang. Moving the beacon's initcall level is a code
+	  change; this only moves the deadline.

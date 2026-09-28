@@ -5409,7 +5409,6 @@ CONFIG_PSTORE=y
 CONFIG_PSTORE_ZLIB_COMPRESS=y
 # CONFIG_PSTORE_LZO_COMPRESS is not set
 # CONFIG_PSTORE_LZ4_COMPRESS is not set
-CONFIG_PSTORE_CONSOLE=y
 CONFIG_PSTORE_PMSG=y
 CONFIG_PSTORE_RAM=y
 # CONFIG_SYSV_FS is not set
@@ -6108,3 +6107,15 @@ CONFIG_TOUCHSCREEN_IST4050=y
 # CONFIG_MFD_CS47L92 is not set
 # CONFIG_SND_SOC_CS47L92 is not set
 # CONFIG_PINCTRL_CS47L92 is not set
+
+# --- TEMPORARY boot-capture instrumentation (delete once the hang is found) ---
+# CONFIG_PSTORE_CONSOLE had to go. pmsg writes every printk into the SAME
+# ramoops buffer, continuously, leaving the panic-time dmesg record no room --
+# which is exactly why every failed boot produced pmsg-ramoops-0 (written by
+# the recovery kernel) and never a dmesg-ramoops-*, even though the kernel
+# obviously died. With pmsg off, ramoops is reserved for the dmesg record.
+# Also raised the record from the 10240-byte default so a real boot log fits.
+# CONFIG_PSTORE_CONSOLE is not set
+CONFIG_PSTORE_DEFAULT_KMSG_BYTES=65536
+CONFIG_P49_BOOTBEACON=y
+CONFIG_P49_BOOTBEACON_MS=10000

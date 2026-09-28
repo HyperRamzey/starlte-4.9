@@ -1,3 +1,4 @@
+source "drivers/p49debug/Kconfig"
 menu "Device Drivers"
 
 source "drivers/amba/Kconfig"
