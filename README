@@ -9,64 +9,93 @@ upstream document and is unmodified.**
 | **Target** | Galaxy A30s, Exynos7885, crDroid 16, 4.4.302-p6 → **4.9.219** |
 | **Branch** | `crdroid-port-4.9` |
 | **Base** | `exynos-linux-stable/starlte` `tw10-android-4.9-q` (`8a9b2212`) |
-| **Status** | **IN PROGRESS — no green build yet** |
+| **Status** | **compiles clean — reaching the `vmlinux` link, 29 undefined symbols** |
+| **Doc** | [`4.9port.md`](4.9port.md) — full detail and evidence |
 
 ## Build progress
 
 | metric | value |
 |---|---|
-| **Objects compiled** | **3,336** |
-| `Image` | **not produced** — link stage never reached |
+| **Compile errors** | **0** |
+| **Objects compiled** | **3,516** |
+| Link stage | **reached** — `ld.bfd` is linking `vmlinux` |
+| `vmlinux` / `Image` | not produced — 29 undefined symbols |
 | `defconfig` target | `rc=0`, **0 errors, 0 warnings**, stable under `streamline_config.pl` |
-| Commits on the vendor base | **120** |
-| Files changed | 100 files, +16,364 / −756 |
+| Commits on the vendor base | **141** |
 | Toolchain | Neutron Clang 24 (target) + pinned `clang-r563880c` (host), `-Werror` |
 
-Per-subsystem objects actually produced — the real measure of progress:
+### Progress history
+
+| milestone | errors | objects |
+|---|---|---|
+| session start | 611 | 3,336 |
+| IVA teardown + USB-notify enum restored | 154 | 3,503 |
+| 9810 camera call sites → 7885 donor form | 91 | 3,176 |
+| `CAMERA_CIS_2L3_OBJ` cleared, LLVM objdump wrappers | 43 | 3,496 |
+| DCP + iovmm + interface-library | 18 | 3,511 |
+| s2mu106 enum tail + platform_mif + panic.c + camera | 1 | 3,511 |
+| DVFS stubs removed, `CONFIG_MFD_S2MPS18` cleared | **0** | 3,516 |
+
+Per-subsystem objects — the real measure of progress:
 
 | subtree | objects | subsystem |
 |---|---|---|
-| `drivers/media/platform/exynos` | 150 | FIMC-IS v6.20 camera + 4 A30s sensors + DW9808 |
-| `drivers/misc/samsung` | 41 | SCSC core transport (mx140) |
-| `drivers/net/wireless/scsc` | 25 | SCSC WLAN |
-| `drivers/muic` | 20 | S2MU106 MUIC / AFC |
-| `drivers/ccic` | 19 | USB Type-C PD (10,345 lines) |
+| `drivers/media/platform/exynos` | 185 | FIMC-IS v6.20 camera, 4 A30s sensors, DW9808 |
+| `drivers/gpu/arm/b_r26p0` | 104 | **Mali Midgard r26p0** |
+| `sound/soc` | 92 | 7885 audio (cod3035) |
+| `drivers/misc/samsung/scsc` | 38 | SCSC core transport (mx140) |
+| `drivers/net/wireless/scsc` | 32 | SCSC WLAN |
+| `drivers/staging/samsung` | 27 | SEC debug, tzdev, sec_argos |
+| `drivers/muic` | 25 | S2MU106 MUIC / AFC |
+| `drivers/video/fbdev/exynos/dpu_7885` | 23 | DECON / DSIM / DPP + S6E8FC1 |
+| `drivers/mfd` | 18 | S2MPU08 PMIC |
 | `drivers/battery_v2` | 12 | S2MU106 charger / fuel gauge |
+| `drivers/ccic` | 11 | USB Type-C PD (10,345 lines) |
 | `drivers/sensors` | 11 | A30s sensor stack |
-| `drivers/gpu/arm/b_r26p0` | 11 | **Mali Midgard r26p0** |
-| `drivers/video/fbdev/exynos/dpu_7885` | 6 | DECON / DSIM / DPP + S6E8FC1 |
-| `drivers/power` | 5 | S2MU106 power |
-| `drivers/vision` | 4 | IVA — being removed, wrong SoC |
+| `drivers/power` | 9 | S2MU106 power |
+| `drivers/vision` | **0** | IVA removed — wrong SoC |
 
-## What is done
+## What the remaining 29 undefined symbols are
 
-- **Ground truth extracted from stock Samsung firmware**: the real 4.4.177 `.config`
-  (1,689 symbols, recovered from the boot image's embedded IKCONFIG), the real 5 decompiled
-  DTBs (base + the four `A30S EUR OPEN` overlays), SCSC firmware and TEEGRIS TA manifests.
-- **Architecture corrected against that ground truth**: Exynos7885 (not a 7904 die);
-  6×A53 + 2×A55; Mali-**G71 MP2 = Midgard r26p0**; **USB Type-C with a real PD stack**
-  (stock `bootargs` pass `ccic_info=0x1`); SCSC mx140 WiFi with
-  **`CONFIG_BT` not set** (SCSC provides the whole Bluetooth stack); all-Samsung S2MU106
-  power, with no Qualcomm PMIC anywhere in the DT.
-- **Ported and compiling**: SCSC WiFi/BT, USB Type-C PD, S2MU106 MUIC/charger, the A30s
-  sensor stack, ET7XX fingerprint, FIMC-IS v6.20 with IMX576/GC5035/HI1631/4HA, the
-  7885 display stack, the 7885 audio machine with COD3035, and Mali r26p0.
-- **Defconfig converged**: 166 changes across 140 symbols against the stock config. Most
-  ported driver code was already present but *unselected*, or selected in a form that does
-  not exist for this SoC.
+Every one is a CONFIG-gated provider (or 9810-only code) whose caller is built. The tree has **no
+compile errors left**. Full table with per-symbol notes in [`4.9port.md`](4.9port.md) §1.
 
-## Top open blockers
+| group | count | examples |
+|---|---|---|
+| camera DCP / subdev / TDNR / CSI-dump / sensor-I2C | 11 | `fimc_is_subdev_dcp_ops`, `csi_hw_phy_dump` |
+| haptic | 4 | `sec_haptic_register`, `haptic_homekey_press` |
+| 9810-only CAL + globals | 4 | `cal_pll_mmc_check`, `exynos_pcie_phy_init`, `bootmode`, `pn_flag` |
+| MUIC / AFC | 2 | `muic_afc_set_voltage`, `max77865_hv_muic_charger_init` |
+| display panel | 1 | `get_lcd_info` |
+| cal-if CPU inform, ACPM, regulator, SEC debug, ION | 7 | `pmucal_cpuinform_list`, `exynos_acpm_set_flag`, `s2m_ldo_set_mode` |
 
-1. `iovmm_map_oto` / `iovmm_unmap_oto` are in no 4.9 header — 3 errors in `dpp_drv.c`.
-   Backport source already located.
-2. The DTS is **missing every per-sensor camera node**; the drivers are correct but
-   nothing will probe.
-3. `include/linux/usb_notify.h` lacks `NOTIFY_EVENT_RESERVE_BOOSTER`.
-4. Two defconfig lines now need adjusting (DW9808 actuator on, TSMUX off).
+## Resolved this session
 
-Full detail, the extraction recipes, the backport-source caveats, and a record of the
-corrections made along the way: **[`4.9port.md`](4.9port.md)**.
+- `iovmm_map_oto` / `iovmm_unmap_oto` backported from `xxmustafacooTR` `main@ffd1341ec75864d08`.
+- `NOTIFY_EVENT_RESERVE_BOOSTER` and `NOTIFY_EVENT_PD_CONTRACT` restored to `usb_notify.h`, in
+  donor order **before** the `NOTIFY_EVENT_VIRTUAL` sentinel (load-bearing: `PHY_EVENT(a)` is
+  `a % NOTIFY_EVENT_VIRTUAL`).
+- The 9810 vision accelerator (IVA) removed. `CONFIG_IVA` was a phantom no Kconfig stanza defines;
+  the real gate was `CONFIG_VISION_SUPPORT`.
+- All 121 of the Exynos9810 `FIMC_IS_SENSOR_CFG` call sites translated to the 7885 donor's
+  `FIMC_IS_SENSOR_CFG_EXT`. Those call sites passed brace-wrapped `VC_IN`/`VC_OUT` initialisers as
+  macro arguments, which C's preprocessor cannot represent — only parentheses protect commas.
+- DCP driver/header version skew reconciled to the active v6.20 `dcp_param` (18 diagnostics).
+- `CONFIG_CAMERA_CIS_2L3_OBJ` cleared (9810 LC 2L3; stock has no such line).
+- `CONFIG_MFD_S2MPS18` / `REGULATOR_S2MPS18` / `RTC_DRV_S2MPS18` cleared. `s2mps18` appears
+  **0 times** in the stock DTB and all four overlays; `s2mpu08` appears 33 times per overlay.
+- LLVM `objdump`/`objcopy`/`readelf` wrappers for the aarch64 prefixes — `Error 127` from the
+  missing `aarch64-linux-objdump` was silently costing objects.
 
+## Still open
+
+1. Resolve the 29 undefined symbols so `vmlinux` links.
+2. The DTS is **missing every per-sensor camera node** (CIS modules, EEPROMs, flash GPIO, DW9808).
+   Drivers compile and compatibles are correct, but nothing will probe.
+3. TEEGRIS wired but disabled; `startup.tazar` recovered out of tree.
+4. Stock overlay marks `s2mu106-charger` disabled — needs a decision.
+
+**No green build has ever been produced for this target.**
 <!-- 4.9-PORT-STATUS-END -->
 
 
