@@ -194,21 +194,22 @@ static void p49_expired(unsigned long data)
 
 static struct timer_list p49_timer;
 
-static void p49_arm_timer(void)
+static int __init p49_arm_timer(void)
 {
 	if (p49_timeout_ms <= 0) {
 		pr_info("p49-bootbeacon: disabled (timeout_ms=%d)\n",
 			p49_timeout_ms);
-		return;
+		return 0;
 	}
 
-	timer_setup(&p49_timer, p49_expired, 0);
+	setup_timer(&p49_timer, p49_expired, 0);
 	mod_timer(&p49_timer, jiffies + msecs_to_jiffies(p49_timeout_ms));
 	p49_armed = true;
 
 	pr_emerg("p49-bootbeacon: REACHED arch_initcall, kernel alive this far. "
 		 "armed a %d ms timeout, so a stall will panic and be recorded\n",
 		 p49_timeout_ms);
+	return 0;
 }
 arch_initcall(p49_arm_timer);
 
