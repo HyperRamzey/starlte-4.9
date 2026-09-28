@@ -98,35 +98,7 @@ struct fimc_is_device_ischain;
 	.internal_vc[CSI_VIRTUAL_CH_3]	= vc_3,				\
 }
 
-/*
- * FIMC_IS_SENSOR_CFG has two live shapes in this tree and C has no macro
- * overloading, so the argument count selects the body.
- *
- * Six arguments is the 4.4 A30s DDK form and is byte-identical to the
- * donor: width, height, framerate, settle, mode, lanes, with mipi_speed
- * and the whole virtual-channel map left at zero. 297 call sites use it.
- *
- * Seventeen arguments is the DDK v6.20 form. It additionally takes
- * mipi_speed, interleave_mode and pd_mode, then four VC_IN/VC_OUT pairs
- * that fill struct fimc_is_sensor_cfg.input[]/.output[] positionally.
- * 121 call sites across 14 module files use it. The order is the one
- * those call sites document for themselves, e.g.
- * fimc-is-device-module-3h1.c:43:
- *
- *   width, height, fps, settle, mode, lane, speed, interleave, pd_mode
- *   then input[0], output[0], input[1], output[1],
- *        input[2], output[2], input[3], output[3]
- *
- * The seventeen-argument body deliberately leaves internal_vc[] and
- * ex_mode alone. internal_vc[] was the 4.4 way of describing what
- * input[].map now describes, and nothing on the v6.20 path reads it any
- * more: csi_v3.c:1261-1280 uses interleave_mode and input[vc], and
- * interface-sensor.c:2519-2527 uses output[ch].type, where the 4.4 donor
- * read csi->internal_vc[ch] instead. ex_mode has no call-site argument in
- * either shape and stays EX_NONE, which is the zero both shapes already
- * relied on.
- */
-#define FIMC_IS_SENSOR_CFG_6(w, h, f, s, m, l) {	\
+#define FIMC_IS_SENSOR_CFG(w, h, f, s, m, l) {	\
 	.width		= w,			\
 	.height		= h,			\
 	.framerate	= f,			\
@@ -139,45 +111,6 @@ struct fimc_is_device_ischain;
 	.internal_vc[CSI_VIRTUAL_CH_2]	= 0,	\
 	.internal_vc[CSI_VIRTUAL_CH_3]	= 0,	\
 }
-
-#define FIMC_IS_SENSOR_CFG_17(w, h, f, s, m, l, sp, il, pd,		\
-		in0, out0, in1, out1, in2, out2, in3, out3) {			\
-	.width		= w,			\
-	.height		= h,			\
-	.framerate	= f,			\
-	.settle		= s,			\
-	.mode		= m,			\
-	.lanes		= l,			\
-	.mipi_speed	= sp,			\
-	.interleave_mode	= il,		\
-	.pd_mode	= pd,			\
-	.input[CSI_VIRTUAL_CH_0]	= in0,	\
-	.output[CSI_VIRTUAL_CH_0]	= out0,	\
-	.input[CSI_VIRTUAL_CH_1]	= in1,	\
-	.output[CSI_VIRTUAL_CH_1]	= out1,	\
-	.input[CSI_VIRTUAL_CH_2]	= in2,	\
-	.output[CSI_VIRTUAL_CH_2]	= out2,	\
-	.input[CSI_VIRTUAL_CH_3]	= in3,	\
-	.output[CSI_VIRTUAL_CH_3]	= out3,	\
-}
-
-/*
- * Arity dispatch. The selector takes 17 arguments, so the 17-argument
- * form picks FIMC_IS_SENSOR_CFG_17 and the 6-argument form picks
- * FIMC_IS_SENSOR_CFG_6. The padding list is 17 long for that reason.
- * Any other count lands on a filler name and fails to compile, which is
- * the intended outcome: a wrong argument count must not silently pick
- * the wrong body.
- */
-#define FIMC_IS_SENSOR_CFG_SEL(_1, _2, _3, _4, _5, _6, _7, _8, _9, \
-		_10, _11, _12, _13, _14, _15, _16, _17, NAME, ...) NAME
-#define FIMC_IS_SENSOR_CFG(...)						\
-	FIMC_IS_SENSOR_CFG_SEL(__VA_ARGS__,				\
-		FIMC_IS_SENSOR_CFG_17,					\
-		_pad16, _pad15, _pad14, _pad13, _pad12, _pad11,		\
-		_pad10, _pad9, _pad8, _pad7,				\
-		FIMC_IS_SENSOR_CFG_6,					\
-		_pad5, _pad4, _pad3, _pad2, _pad1)(__VA_ARGS__)
 /*
  * @map:	VC parsing info.
  *		This is determined by sensor output format.
