@@ -201,8 +201,6 @@ static int calc_ttf_to_full_capacity(struct s2mu106_fuelgauge_data *fuelgauge,
 		return 0;
 }
 
-static int calc_ttf(struct s2mu106_fuelgauge_data *fuelgauge,
-		    union power_supply_propval *val)
 {
 	struct cv_slope *cv_data = fuelgauge->cv_data;
 	int i, cc_time = 0, cv_time = 0;
