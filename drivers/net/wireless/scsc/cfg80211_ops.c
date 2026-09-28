@@ -443,6 +443,9 @@ int slsi_scan(struct wiphy *wiphy, struct net_device *dev,
 	struct ieee80211_channel  *channels[64];
 	int                       i, chan_count = 0;
 	bool                      wps_sta = false;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
+	struct cfg80211_scan_info  info = {.aborted = false};
+#endif
 
 #ifdef CONFIG_SCSC_WLAN_ENABLE_MAC_RANDOMISATION
 	u8 mac_addr_mask[ETH_ALEN] = {0xFF};

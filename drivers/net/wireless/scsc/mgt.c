@@ -2135,7 +2135,7 @@ int slsi_send_forward_beacon_vendor_event(struct slsi_dev *sdev, const u8 *ssid,
 	err |= nla_put_u32(skb, SLSI_WLAN_VENDOR_ATTR_FORWARD_BEACON_TIME_STAMP1, (timestamp & 0x00000000FFFFFFFF));
 	err |= nla_put_u32(skb, SLSI_WLAN_VENDOR_ATTR_FORWARD_BEACON_TIME_STAMP2,
 			   ((timestamp >> 32) & 0x00000000FFFFFFFF));
-	err |= nla_put_u64(skb, SLSI_WLAN_VENDOR_ATTR_FORWARD_BEACON_SYS_TIME, sys_time);
+	err |= nla_put_u64_64bit(skb, SLSI_WLAN_VENDOR_ATTR_FORWARD_BEACON_SYS_TIME, sys_time, 0);
 
 	if (err) {
 		SLSI_ERR_NODEV("Failed nla_put for forward_beacon\n");
@@ -4377,6 +4377,9 @@ exit:
 int slsi_p2p_dev_null_ies(struct slsi_dev *sdev, struct net_device *dev)
 {
 	struct netdev_vif *ndev_vif = netdev_priv(dev);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
+	struct cfg80211_scan_info info = {.aborted = true};
+#endif
 
 	if (!SLSI_IS_P2P_UNSYNC_VIF(ndev_vif)) {
 		SLSI_NET_ERR(dev, "Incorrect vif type - Not unsync vif\n");
@@ -4753,6 +4756,9 @@ void slsi_abort_sta_scan(struct slsi_dev *sdev)
 {
 	struct net_device *wlan_net_dev = NULL;
 	struct netdev_vif *ndev_vif;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
+	struct cfg80211_scan_info info = {.aborted = true};
+#endif
 
 	wlan_net_dev = slsi_get_netdev(sdev, SLSI_NET_INDEX_WLAN);
 

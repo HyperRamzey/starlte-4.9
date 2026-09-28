@@ -635,6 +635,7 @@ void slsi_tdls_move_packets(struct slsi_dev *sdev, struct net_device *dev,
 	u16                           j;
 	int index;
 	struct slsi_tcp_ack_s *tcp_ack;
+	struct sk_buff                *to_free = NULL;
 
 	/* Get the netdev queue number from queueset */
 	staq = slsi_netif_get_peer_queue(sta_peer->queueset, 0);
@@ -679,16 +680,16 @@ void slsi_tdls_move_packets(struct slsi_dev *sdev, struct net_device *dev,
 	/* Move packets from netdev queues */
 	for (i = 0; i < SLSI_NETIF_Q_PER_PEER; i++) {
 		SLSI_NET_DBG2(dev, SLSI_TDLS, "NETQ%d: Before: tdlsq_len = %d, staq_len = %d\n",
-			      i, skb_queue_len(&dev->_tx[tdlsq + i].qdisc->q), skb_queue_len(&dev->_tx[staq + i].qdisc->q));
+			      i, qdisc_qlen(dev->_tx[tdlsq + i].qdisc), qdisc_qlen(dev->_tx[staq + i].qdisc));
 
 		if (connection) {
 			/* Check if any packet is already avilable in TDLS queue (most likely from last session) */
-			if (skb_queue_len(&dev->_tx[tdlsq + i].qdisc->q))
+			if (qdisc_qlen(dev->_tx[tdlsq + i].qdisc))
 				SLSI_NET_ERR(dev, "tdls_connection: Packet present in queue %d\n", tdlsq + i);
 
 			qd = dev->_tx[staq + i].qdisc;
 			/* Get the total number of packets in STAQ */
-			num_pkts = skb_queue_len(&qd->q);
+			num_pkts = qdisc_qlen(qd);
 
 			/* Check all the pkt in STAQ and move the TDLS pkts to TDSLQ */
 			for (j = 0; j < num_pkts; j++) {
@@ -720,10 +721,10 @@ void slsi_tdls_move_packets(struct slsi_dev *sdev, struct net_device *dev,
 				qd = dev->_tx[netq].qdisc;
 
 				/* If the netdev queue is already full then enqueue() will drop the skb */
-				qd->enqueue(skb, qd);
+				qdisc_enqueue(skb, qd, &to_free);
 			}
 		} else {
-			num_pkts = skb_queue_len(&dev->_tx[tdlsq + i].qdisc->q);
+			num_pkts = qdisc_qlen(dev->_tx[tdlsq + i].qdisc);
 			/* Move the packets from TDLS to STA queue */
 			for (j = 0; j < num_pkts; j++) {
 				/* Dequeue the pkt form TDLS_Q. This logic is similar to kernel API dequeue_skb() */
@@ -748,17 +749,18 @@ void slsi_tdls_move_packets(struct slsi_dev *sdev, struct net_device *dev,
 				qd = dev->_tx[staq + i].qdisc;
 
 				/* If the netdev queue is already full then enqueue() will drop the skb */
-				qd->enqueue(skb, qd);
+				qdisc_enqueue(skb, qd, &to_free);
 			}
 		}
+		kfree_skb_list(to_free);
 		SLSI_NET_DBG2(dev, SLSI_TDLS, "NETQ%d: After : tdlsq_len = %d, staq_len = %d\n",
-			      i, skb_queue_len(&dev->_tx[tdlsq + i].qdisc->q), skb_queue_len(&dev->_tx[staq + i].qdisc->q));
+			      i, qdisc_qlen(dev->_tx[tdlsq + i].qdisc), qdisc_qlen(dev->_tx[staq + i].qdisc));
 	}
 
 	/* Teardown - after teardown there should not be any packet in TDLS queues */
 	if (!connection)
 		for (i = 0; i < SLSI_NETIF_Q_PER_PEER; i++) {
-			if (skb_queue_len(&dev->_tx[tdlsq + i].qdisc->q))
+			if (qdisc_qlen(dev->_tx[tdlsq + i].qdisc))
 				SLSI_NET_ERR(dev, "tdls_teardown: Packet present in NET queue %d\n", tdlsq + i);
 		}
 
@@ -904,7 +906,7 @@ evaluate:
 		if (original_skb)
 			slsi_kfree_skb(original_skb);
 		/* skb freed by lower layers on success...enjoy */
-		dev->trans_start = jiffies;
+		netif_trans_update(dev);
 
 		ndev_vif->tx_packets[traffic_q]++;
 		ndev_vif->stats.tx_packets++;
@@ -1578,12 +1580,12 @@ int slsi_netif_pending_queues(int vif_type, struct net_device *dev)
 	/*Get the network level queue length */
 	if (vif_type == FAPI_VIFTYPE_STATION)
 		for (i = SLSI_NETIF_Q_PEER_START; i < (SLSI_NETIF_Q_PEER_START + SLSI_NETIF_Q_PER_PEER); i++)
-			len += skb_queue_len(&dev->_tx[i].qdisc->q);
+			len += qdisc_qlen(dev->_tx[i].qdisc);
 
 	if (vif_type == FAPI_VIFTYPE_AP)
 		for (i = 0; i < SLSI_AP_PEER_CONNECTIONS_MAX; i++)
 			for (tid = SLSI_NETIF_Q_PEER_START; tid < (SLSI_NETIF_Q_PEER_START + SLSI_NETIF_Q_PER_PEER); tid++)
-				len += skb_queue_len(&dev->_tx[tid].qdisc->q);
+				len += qdisc_qlen(dev->_tx[tid].qdisc);
 
 	return len;
 }

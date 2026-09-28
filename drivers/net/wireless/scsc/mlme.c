@@ -2853,6 +2853,9 @@ int slsi_mlme_connect_scan(struct slsi_dev *sdev, struct net_device *dev,
 	struct ieee80211_channel           **add_scan_channels;
 	int                                n_channels = 0;
 	struct sk_buff                     *scan;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
+	struct cfg80211_scan_info          info = {.aborted = true};
+#endif
 
 	SLSI_MUTEX_LOCK(ndev_vif->scan_mutex);
 

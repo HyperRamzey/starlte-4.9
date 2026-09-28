@@ -946,6 +946,9 @@ void slsi_scan_complete(struct slsi_dev *sdev, struct net_device *dev, u16 scan_
 #ifdef CONFIG_SCSC_WLAN_BSS_SELECTION
 	struct list_head    *pos, *q, *blacklist_pos, *blacklist_q;
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
+	struct cfg80211_scan_info info = {.aborted = aborted};
+#endif
 
 	if (WARN_ON(scan_id >= SLSI_SCAN_MAX))
 		return;
