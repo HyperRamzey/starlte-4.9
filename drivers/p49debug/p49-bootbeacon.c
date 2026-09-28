@@ -56,6 +56,10 @@
 #include <linux/writeback.h>
 
 #define P49_SCRATCH_NAME	"mmcblk0p28"
+#define P49_SCRATCH_ALT	"mmcblk0p30"	/* cp_debug: a second target so a
+					   failed or busy p28 cannot be the
+					   only thing standing between us and
+					   the log */
 #define P49_LOG_MAX		(192 * 1024)
 #define P49_MAGIC_LE		0x474F4F42	/* "BOOG" */
 /*
@@ -107,7 +111,7 @@ static size_t p49_grab_log(void)
  *   WHOLE page -- there is no offset/size pair, so the buffer is page-padded.
  * drivers/mtd/devices/block2mtd.c is the in-tree precedent for the open sequence.
  */
-static int p49_write_scratch(const void *data, size_t len, sector_t start)
+static int p49_write_scratch(const char *name, const void *data, size_t len, sector_t start)
 {
 	const char *ptr = data;
 	sector_t sector = start;
@@ -119,10 +123,9 @@ static int p49_write_scratch(const void *data, size_t len, sector_t start)
 
 	memset(&wbc, 0, sizeof(wbc));
 
-	devt = name_to_dev_t(P49_SCRATCH_NAME);
+	devt = name_to_dev_t(name);
 	if (!devt) {
-		pr_emerg("p49-bootbeacon: name_to_dev_t(%s) -> 0\n",
-			 P49_SCRATCH_NAME);
+		pr_emerg("p49-bootbeacon: name_to_dev_t(%s) -> 0\n", name);
 		return -ENODEV;
 	}
 
@@ -193,15 +196,27 @@ static void p49_snapshot(int which, int level, int retries)
 	 * a race. Retry briefly rather than throw it away.
 	 */
 	for (tries = 0; tries < retries; tries++) {
-		if (!p49_write_scratch(p49_buf, total,
+		if (!p49_write_scratch(P49_SCRATCH_NAME, p49_buf, total,
 				       P49_BASE_SECTOR + (sector_t)which * P49_SNAPSHOT_STRIDE)) {
-			pr_emerg("p49-bootbeacon: snapshot %d WRITTEN to p28\n", which);
+			pr_emerg("p49-bootbeacon: snapshot %d WRITTEN to %s\n",
+				 which, P49_SCRATCH_NAME);
+			p49_write_scratch(P49_SCRATCH_ALT, p49_buf, total,
+					  (sector_t)which * P49_SNAPSHOT_STRIDE);
 			return;
 		}
 		mdelay(200);
 	}
-	pr_emerg("p49-bootbeacon: snapshot %d could NOT be written after %d tries\n",
-		 which, retries);
+	/* p28 never opened; try the alternative once with the full retry budget */
+	for (tries = 0; tries < retries; tries++) {
+		if (!p49_write_scratch(P49_SCRATCH_ALT, p49_buf, total,
+				      (sector_t)which * P49_SNAPSHOT_STRIDE)) {
+			pr_emerg("p49-bootbeacon: snapshot %d WRITTEN to %s (p28 unavailable)\n",
+				 which, P49_SCRATCH_ALT);
+			return;
+		}
+		mdelay(200);
+	}
+	pr_emerg("p49-bootbeacon: snapshot %d written to NEITHER partition\n", which);
 }
 
 static int p49_open_retries = 40;
