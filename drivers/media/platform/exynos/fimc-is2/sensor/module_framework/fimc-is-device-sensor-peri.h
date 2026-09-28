@@ -96,8 +96,6 @@ struct fimc_is_cis {
 #endif
 	u32				ae_exposure;
 	u32				ae_deltaev;
-	u32				ae_exposure;
-	u32				ae_deltaev;
 
 	/* settings for initial AE */
 	bool				use_initial_ae;

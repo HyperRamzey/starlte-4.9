@@ -237,6 +237,8 @@ struct fimc_is_frame_cfg {
 	u32				num_buffers; /* total number of buffers per frame */
 	enum camera_pixel_size		pixel_size;
 };
+
+struct fimc_is_queue_ops {
 	int (*start_streaming)(void *qdevice,
 		struct fimc_is_queue *queue);
 	int (*stop_streaming)(void *qdevice,
