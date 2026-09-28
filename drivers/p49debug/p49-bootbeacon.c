@@ -56,6 +56,7 @@
 #include <linux/bio.h>
 #include <linux/mm.h>
 #include <linux/kmsg_dump.h>
+#include <linux/writeback.h>
 
 #define P49_SCRATCH_NAME	"mmcblk0p28"
 #define P49_LOG_MAX		(384 * 1024)
@@ -127,9 +128,10 @@ static size_t p49_grab_log(void)
  *   - blkdev_get_by_dev(dev, fmode_t mode, void *holder) and
  *     blkdev_put(bdev, mode) both live in include/linux/fs.h, and blkdev_put
  *     takes the mode back.
- *   - bdev_write_page() is the clean single-page writer; hand-rolling a bio here
- *     would mean dealing with bi_io_vec/bi_vcnt and the two-argument bio_put(),
- *     for no benefit.
+ *   - bdev_write_page() is the clean single-page writer, but here it takes a
+ *     struct writeback_control* and writes a WHOLE page -- there is no
+ *     offset/size pair. So the buffer is padded up to a page multiple and the
+ *     loop just walks one page at a time. p28 is 200 MB, so the padding is free.
  * drivers/mtd/devices/block2mtd.c is the in-tree precedent for the
  * name_to_dev_t + blkdev_get_by_dev sequence.
  */
@@ -137,10 +139,13 @@ static int p49_write_scratch(const void *data, size_t len)
 {
 	const char *ptr = data;
 	sector_t sector = 0;
+	struct writeback_control wbc;
 	struct block_device *bdev;
 	size_t remaining = len;
 	dev_t devt;
 	int ret;
+
+	memset(&wbc, 0, sizeof(wbc));
 
 	devt = name_to_dev_t(P49_SCRATCH_NAME);
 	if (!devt) {
@@ -156,22 +161,21 @@ static int p49_write_scratch(const void *data, size_t len)
 		return PTR_ERR(bdev);
 	}
 
-	while (remaining) {
+	while (remaining >= PAGE_SIZE) {
 		struct page *pg = virt_to_page(ptr);
-		unsigned int off = offset_in_page(ptr);
-		unsigned int chunk = min_t(size_t, remaining, PAGE_SIZE - off);
 
-		ret = bdev_write_page(bdev, sector, pg, off, chunk);
+		ret = bdev_write_page(bdev, sector, pg, &wbc);
 		if (ret) {
 			pr_emerg("p49-bootbeacon: bdev_write_page err %d "
-				 "at sector %llu\n", ret, (unsigned long long)sector);
+				 "at sector %llu\n", ret,
+				 (unsigned long long)sector);
 			blkdev_put(bdev, FMODE_WRITE);
 			return ret;
 		}
 
-		ptr += chunk;
-		remaining -= chunk;
-		sector += (chunk + 511) / 512;
+		ptr += PAGE_SIZE;
+		remaining -= PAGE_SIZE;
+		sector += PAGE_SIZE / 512;
 	}
 
 	blkdev_put(bdev, FMODE_WRITE);
@@ -194,7 +198,14 @@ static void p49_emit(const char *hdrline, size_t log_len)
 	/* log first, then the 32-byte header, into one contiguous write */
 	memmove(p49_buf + sizeof(h), p49_buf, log_len);
 	memcpy(p49_buf, &h, sizeof(h));
-	total = sizeof(h) + log_len;
+
+	/*
+	 * bdev_write_page() can only write whole pages, so pad up to a page
+	 * multiple and mark the pad with a byte the log text cannot contain, so a
+	 * short write is still obvious to whoever reads this back.
+	 */
+	total = roundup(sizeof(h) + log_len, PAGE_SIZE);
+	memset(p49_buf + sizeof(h) + log_len, 0xA5, total - sizeof(h) - log_len);
 
 	pr_emerg("p49-bootbeacon: %s, %zu bytes of log -> %s\n",
 		 hdrline, log_len, P49_SCRATCH_NAME);
