@@ -1,53 +1,52 @@
 /*
  * p49-bootbeacon - TEMPORARY bring-up instrumentation for the 4.9 port.
  *
- * WHAT IT DOES
- * ------------
- * Two snapshots of the kernel log to the `cache` partition (p28), at the end of
- * device_initcall and again at the end of late_initcall, and then it gets out of
- * the way. It does NOT panic. That is deliberate: the point of this build is to
- * find out whether the phone boots with TZDEV and TUI switched off, and a panic
- * would destroy that answer.
+ * THE REAL PROBLEM THIS SOLVES
+ * ----------------------------
+ * The 4.9 kernel hangs, and the only way back to a readable state is a HARD RESET
+ * performed by a human. A hard reset re-initialises DRAM, which wipes the region
+ * pstore writes into. So the panic record is destroyed by the very reset that
+ * brings recovery up. That is why no log has ever been readable, no matter how
+ * pstore is configured. Writing to eMMC does not help either, because the eMMC
+ * block device does not exist until mmc's device_initcall, and the hang happens
+ * before that.
  *
- * WHY eMMC AND NOT PSTORE
- * -----------------------
- * pstore/ramoops lives in DRAM, and DRAM does not survive what this phone
- * actually does to it. The kernel hangs, the only way back to a readable state
- * is a hard reset, and a hard reset re-initialises DRAM, wiping the reserved
- * region pstore was writing into. The record is destroyed by the same reset that
- * brings recovery up. (fs/pstore/ram.c is still configured as closely to stock as
- * possible -- 0x915A0000/32K with record=pmsg=0x4000, the exact values read out
- * of the running stock recovery kernel -- but it cannot survive a cold reset, so
- * it is a bonus channel, not the mechanism.)
+ * The fix is to make the kernel do the recording AND the restarting itself, so no
+ * human reset is involved and the DRAM survives:
  *
- * WHY INITCALL LEVELS IN THIS TREE
- * -------------------------------
- * core_initcall=1, postcore_initcall=2, arch_initcall=3, subsys_initcall=4,
- * fs_initcall=5, device_initcall=6, late_initcall=7. Measured, not assumed -- an
- * earlier version of this file used core_initcall on the belief that it ran
- * after postcore_initcall, and it does not.
+ *   arch_initcall (level 3)  arm a timer for P49_TIMEOUT_MS
+ *   ...                       the kernel carries on booting
+ *   late_initcall (level 7)  reached => cancel the timer, log to eMMC, carry on
+ *   P49_TIMEOUT_MS elapsed   => panic() => kmsg_dump(KMSG_DUMP_PANIC) writes the
+ *                              record, then CONFIG_PANIC_TIMEOUT=5 makes the
+ *                              kernel WARM-restart on its own
  *
- * WHY p49debug SITS LAST IN drivers/Makefile
- * -------------------------------------------
- * Within a level, initcalls run in link order, so being last means the snapshot
- * contains everything the other drivers printed. The cost is that a driver that
- * wedges before we run means no snapshot at all. That trade is deliberate: this
- * build has TZDEV and TUI disabled precisely so that the level-6 suspects are
- * only touch (input/), i2c and media/display, and those are the ones we want to
- * see in the log.
+ * Why a timer rather than an immediate panic: the suspected hang is a blocked
+ * task -- a firmware read over I2C waiting for a controller that never answers --
+ * not a stopped-interrupts hang. Interrupts are still running, so the timer still
+ * fires, and by then the ring buffer holds the whole boot log INCLUDING the last
+ * messages printed before the wedge. That log is the thing we actually want.
  *
- * Reading it back:
- *   adb shell 'dd if=/dev/block/mmcblk0p28 bs=1M count=9 skip=8' > p49log.bin
- *   # or pull the whole partition: it is 200 MB
+ * If the kernel wedges BEFORE level 3, no timer is ever armed and there will be
+ * no record; that is the next thing to bisect, and it would mean moving the arm
+ * point earlier and accepting that pstore is not yet live to receive it.
+ *
+ * INITCALL LEVELS IN THIS TREE (measured from include/linux/init.h, not assumed):
+ *   early_initcall=0 core_initcall=1 postcore_initcall=2 arch_initcall=3
+ *   subsys_initcall=4 fs_initcall=5 device_initcall=6 late_initcall=7
+ * Level 3 is the earliest point at which pstore is guaranteed usable, because
+ * ramoops_init() is a postcore_initcall at level 2.
  *
  * Delete this whole directory once the hang is found. It has no business in a
- * shipping kernel.
+ * shipping kernel, and it will deliberately panic a booting phone.
  */
 
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/blkdev.h>
@@ -56,32 +55,31 @@
 #include <linux/writeback.h>
 
 #define P49_SCRATCH_NAME	"mmcblk0p28"
-#define P49_SCRATCH_ALT	"mmcblk0p30"	/* cp_debug: a second target so a
-					   failed or busy p28 cannot be the
-					   only thing standing between us and
-					   the log */
 #define P49_LOG_MAX		(192 * 1024)
 #define P49_MAGIC_LE		0x474F4F42	/* "BOOG" */
-/*
- * Start at 8 MiB. p28 turned out to hold a real ext4 filesystem (superblock
- * magic 53 ef at 0x438), so writing at sector 0 would stomp its metadata. 8 MiB
- * is far past anything an empty ext4 uses, and the partition is 200 MB.
- */
+/* p28 holds a real ext4 filesystem, so stay well clear of its metadata. */
 #define P49_BASE_SECTOR		(8 * 1024 * 1024 / 512)
-#define P49_SNAPSHOT_STRIDE	(256 * 1024 / 512)
 
 struct p49_hdr {
 	u32 magic;
 	u32 version;
-	u32 snapshot;
 	u32 initcall_level;
 	u32 log_len;
 	u32 total_len;
 	u64 jiffies;
-	u32 reserved[2];
 } __attribute__((packed));
 
 static char p49_buf[P49_LOG_MAX] __attribute__((aligned(4096)));
+static bool p49_armed;
+
+static int p49_timeout_ms = 30000;
+module_param_named(timeout_ms, p49_timeout_ms, int, 0444);
+MODULE_PARM_DESC(timeout_ms,
+	"ms after arch_initcall before panicking; 0 disables the whole beacon");
+
+static int p49_open_retries = 40;
+module_param_named(open_retries, p49_open_retries, int, 0444);
+MODULE_PARM_DESC(open_retries, "eMMC open retries at 200ms intervals");
 
 static void p49_kmsg_hook(struct kmsg_dumper *d, enum kmsg_dump_reason reason)
 {
@@ -95,23 +93,19 @@ static size_t p49_grab_log(void)
 
 	d.dump = p49_kmsg_hook;
 	d.max_reason = KMSG_DUMP_PANIC;
-
 	if (!kmsg_dump_get_buffer(&d, true, p49_buf, sizeof(p49_buf), &len))
 		return 0;
 	return len;
 }
 
-/*
- * Block API notes for THIS tree, all of which differ from mainline and all of
- * which cost me a build each:
+/* Block API notes for THIS tree, each of which differs from mainline:
  *   name_to_dev_t(name) takes ONE argument and RETURNS dev_t, 0 on failure.
- *   blkdev_get_by_dev(dev, fmode_t, holder) and blkdev_put(bdev, mode) are in
+ *   blkdev_get_by_dev(dev, fmode_t, holder), blkdev_put(bdev, mode) -- both in
  *   include/linux/fs.h, and blkdev_put takes the mode back.
- *   bdev_write_page() takes (bdev, sector, page, writeback_control) and writes a
- *   WHOLE page -- there is no offset/size pair, so the buffer is page-padded.
+ *   bdev_write_page(bdev, sector, page, writeback_control) writes a WHOLE page.
  * drivers/mtd/devices/block2mtd.c is the in-tree precedent for the open sequence.
  */
-static int p49_write_scratch(const char *name, const void *data, size_t len, sector_t start)
+static int p49_write_scratch(const void *data, size_t len, sector_t start)
 {
 	const char *ptr = data;
 	sector_t sector = start;
@@ -123,26 +117,19 @@ static int p49_write_scratch(const char *name, const void *data, size_t len, sec
 
 	memset(&wbc, 0, sizeof(wbc));
 
-	devt = name_to_dev_t(name);
-	if (!devt) {
-		pr_emerg("p49-bootbeacon: name_to_dev_t(%s) -> 0\n", name);
+	devt = name_to_dev_t(P49_SCRATCH_NAME);
+	if (!devt)
 		return -ENODEV;
-	}
 
 	bdev = blkdev_get_by_dev(devt, FMODE_WRITE, NULL);
-	if (IS_ERR(bdev)) {
-		pr_emerg("p49-bootbeacon: blkdev_get_by_dev err %ld\n",
-			 PTR_ERR(bdev));
+	if (IS_ERR(bdev))
 		return PTR_ERR(bdev);
-	}
 
 	while (remaining >= PAGE_SIZE) {
 		struct page *pg = virt_to_page(ptr);
 
 		ret = bdev_write_page(bdev, sector, pg, &wbc);
 		if (ret) {
-			pr_emerg("p49-bootbeacon: bdev_write_page err %d at "
-				 "sector %llu\n", ret, (unsigned long long)sector);
 			blkdev_put(bdev, FMODE_WRITE);
 			return ret;
 		}
@@ -155,7 +142,8 @@ static int p49_write_scratch(const char *name, const void *data, size_t len, sec
 	return 0;
 }
 
-static void p49_snapshot(int which, int level, int retries)
+/* Best-effort: the eMMC channel only exists once mmc has probed. */
+static void p49_try_emmc(void)
 {
 	struct p49_hdr h;
 	size_t log_len, total;
@@ -163,78 +151,76 @@ static void p49_snapshot(int which, int level, int retries)
 
 	log_len = p49_grab_log();
 	if (!log_len) {
-		pr_emerg("p49-bootbeacon: log buffer empty at snapshot %d\n",
-			 which);
+		pr_emerg("p49-bootbeacon: log buffer empty, skipping eMMC\n");
 		return;
 	}
 
-	/* bdev_write_page() writes whole pages, so pad up to a page multiple. */
 	total = roundup(log_len + sizeof(h), PAGE_SIZE);
 	memset(p49_buf + sizeof(h) + log_len, 0xA5, total - sizeof(h) - log_len);
 
 	h.magic = P49_MAGIC_LE;
 	h.version = 1;
-	h.snapshot = which;
-	h.initcall_level = level;
+	h.initcall_level = 7;
 	h.log_len = (u32)log_len;
 	h.total_len = (u32)total;
 	h.jiffies = jiffies;
 
-	/*
-	 * Header and log in one write, and the header first, so a reader can
-	 * validate the magic before trusting the length in it and never sees a
-	 * torn pair.
-	 */
 	memmove(p49_buf + sizeof(h), p49_buf, log_len);
 	memcpy(p49_buf, &h, sizeof(h));
 
-	pr_emerg("p49-bootbeacon: snapshot %d (level %d): %zu bytes of log, jiffies %llu\n",
-		 which, level, h.log_len, (unsigned long long)h.jiffies);
-
-	/*
-	 * eMMC card detection is asynchronous, so a single open can lose the log to
-	 * a race. Retry briefly rather than throw it away.
-	 */
-	for (tries = 0; tries < retries; tries++) {
-		if (!p49_write_scratch(P49_SCRATCH_NAME, p49_buf, total,
-				       P49_BASE_SECTOR + (sector_t)which * P49_SNAPSHOT_STRIDE)) {
-			pr_emerg("p49-bootbeacon: snapshot %d WRITTEN to %s\n",
-				 which, P49_SCRATCH_NAME);
-			p49_write_scratch(P49_SCRATCH_ALT, p49_buf, total,
-					  (sector_t)which * P49_SNAPSHOT_STRIDE);
+	for (tries = 0; tries < p49_open_retries; tries++) {
+		if (!p49_write_scratch(p49_buf, total, P49_BASE_SECTOR)) {
+			pr_emerg("p49-bootbeacon: log WRITTEN to p28 (%zu bytes)\n",
+				 log_len);
 			return;
 		}
 		mdelay(200);
 	}
-	/* p28 never opened; try the alternative once with the full retry budget */
-	for (tries = 0; tries < retries; tries++) {
-		if (!p49_write_scratch(P49_SCRATCH_ALT, p49_buf, total,
-				      (sector_t)which * P49_SNAPSHOT_STRIDE)) {
-			pr_emerg("p49-bootbeacon: snapshot %d WRITTEN to %s (p28 unavailable)\n",
-				 which, P49_SCRATCH_ALT);
-			return;
-		}
-		mdelay(200);
+	pr_emerg("p49-bootbeacon: eMMC unavailable after %d tries\n",
+		 p49_open_retries);
+}
+
+/*
+ * The timer that turns a silent wedge into a recorded panic. If this ever fires
+ * we know the kernel reached arch_initcall and then stopped making progress.
+ */
+static void p49_expired(unsigned long data)
+{
+	pr_emerg("p49-bootbeacon: TIMED OUT after %d ms -- boot did not reach "
+		 "late_initcall. panicking so pstore can record the log\n",
+		 p49_timeout_ms);
+	panic("p49-bootbeacon: boot stalled before late_initcall");
+}
+
+static struct timer_list p49_timer;
+
+static void p49_arm_timer(void)
+{
+	if (p49_timeout_ms <= 0) {
+		pr_info("p49-bootbeacon: disabled (timeout_ms=%d)\n",
+			p49_timeout_ms);
+		return;
 	}
-	pr_emerg("p49-bootbeacon: snapshot %d written to NEITHER partition\n", which);
+
+	timer_setup(&p49_timer, p49_expired, 0);
+	mod_timer(&p49_timer, jiffies + msecs_to_jiffies(p49_timeout_ms));
+	p49_armed = true;
+
+	pr_emerg("p49-bootbeacon: REACHED arch_initcall, kernel alive this far. "
+		 "armed a %d ms timeout, so a stall will panic and be recorded\n",
+		 p49_timeout_ms);
 }
+arch_initcall(p49_arm_timer);
 
-static int p49_open_retries = 40;
-module_param_named(open_retries, p49_open_retries, int, 0444);
-MODULE_PARM_DESC(open_retries, "eMMC open retries at 200ms intervals");
-
-static int __init p49_beacon_dev(void)
+static int __init p49_reached_late(void)
 {
-	pr_emerg("p49-bootbeacon: REACHED end of device_initcall, kernel alive\n");
-	p49_snapshot(0, 6, p49_open_retries);
+	if (p49_armed) {
+		del_timer_sync(&p49_timer);
+		p49_armed = false;
+		pr_emerg("p49-bootbeacon: REACHED late_initcall, boot is progressing. "
+			 "timeout cancelled\n");
+	}
+	p49_try_emmc();
 	return 0;
 }
-device_initcall(p49_beacon_dev);
-
-static int __init p49_beacon_late(void)
-{
-	pr_emerg("p49-bootbeacon: REACHED end of late_initcall, kernel alive\n");
-	p49_snapshot(1, 7, p49_open_retries);
-	return 0;
-}
-late_initcall(p49_beacon_late);
+late_initcall(p49_reached_late);
