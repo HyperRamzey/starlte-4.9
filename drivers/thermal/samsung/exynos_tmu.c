@@ -1899,7 +1899,9 @@ struct exynos_tmu_data *gpu_thermal_data;
 static int exynos_tmu_probe(struct platform_device *pdev)
 {
 	struct exynos_tmu_data *data;
+#if defined(CONFIG_SOC_EXYNOS9810)
 	unsigned int ctrl;
+#endif
 	int ret;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct exynos_tmu_data),

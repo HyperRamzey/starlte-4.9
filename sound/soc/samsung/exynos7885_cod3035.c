@@ -20,6 +20,8 @@
 #include <linux/gpio.h>
 #include <soc/samsung/exynos-pmu.h>
 #include <sound/samsung/abox.h>
+#include <linux/regulator/consumer.h>
+#include "cod3035x.h"
 #if defined(CONFIG_SND_SOC_DBMDX)
 #include <sound/dbmdx-export.h>
 #endif

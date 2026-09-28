@@ -33,6 +33,7 @@
 #include <linux/completion.h>
 #include <uapi/linux/input-event-codes.h>
 
+#include "../../../drivers/mfd/s2mpu08-private.h"
 #include <soc/samsung/acpm_mfd.h>
 #include "cod3035x.h"
 
