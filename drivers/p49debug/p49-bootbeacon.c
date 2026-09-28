@@ -42,7 +42,6 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
-#include <linux/panic.h>
 
 static int p49_beacon_ms = 10000;
 module_param_named(beacon_ms, p49_beacon_ms, int, 0444);
