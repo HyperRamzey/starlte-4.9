@@ -1177,16 +1177,3 @@ int fimc_is_hw_dvfs_init(void *dvfs_data)
 	return ret;
 }
 
-void fimc_is_dual_mode_update(struct fimc_is_device_ischain *device,
-		struct fimc_is_group *group,
-		struct fimc_is_frame *frame)
-{
-	/* Currently doing nothing */
-}
-
-void fimc_is_dual_dvfs_update(struct fimc_is_device_ischain *device,
-		struct fimc_is_group *group,
-		struct fimc_is_frame *frame)
-{
-	/* Currently doing nothing */
-}
