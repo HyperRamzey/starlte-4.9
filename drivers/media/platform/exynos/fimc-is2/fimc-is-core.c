@@ -217,7 +217,6 @@ void fimc_is_print_frame_dva(struct fimc_is_subdev *subdev)
 static void __fimc_is_fault_handler(struct device *dev)
 {
 	u32 i, j, k, sd_index;
-	int vc;
 	struct fimc_is_core *core;
 	struct fimc_is_device_sensor *sensor;
 	struct fimc_is_device_ischain *ischain;
@@ -269,15 +268,6 @@ static void __fimc_is_fault_handler(struct device *dev)
 				csi = (struct fimc_is_device_csi *)v4l2_get_subdevdata(sensor->subdev_csi);
 				if (csi) {
 					csi_hw_dump(csi->base_reg);
-					csi_hw_phy_dump(csi->phy_reg, csi->instance);
-					for (vc = CSI_VIRTUAL_CH_0; vc < CSI_VIRTUAL_CH_MAX; vc++) {
-						csi_hw_vcdma_dump(csi->vc_reg[vc + csi->offset]);
-						csi_hw_vcdma_cmn_dump(csi->cmn_reg[vc + csi->offset]);
-					}
-					csi_hw_common_dma_dump(csi->csi_dma->base_reg);
-#if defined(ENABLE_PDP_STAT_DMA)
-					csi_hw_common_dma_dump(csi->csi_dma->base_reg_stat);
-#endif
 				}
 			}
 		}

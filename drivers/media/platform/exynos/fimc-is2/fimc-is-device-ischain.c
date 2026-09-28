@@ -108,10 +108,12 @@ extern const struct fimc_is_subdev_ops fimc_is_subdev_dis_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_dxc_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_scc_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_scp_ops;
+#if defined(CONFIG_FIMC_IS_V6_0_0)
 extern const struct fimc_is_subdev_ops fimc_is_subdev_dcp_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_dcxs_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_dcxc_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_dcxc_ops;
+#endif
 extern const struct fimc_is_subdev_ops fimc_is_subdev_mcs_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_mcsp_ops;
 extern const struct fimc_is_subdev_ops fimc_is_subdev_vra_ops;
@@ -139,8 +141,10 @@ static int fimc_is_ischain_isp_shot(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame);
 static int fimc_is_ischain_dis_shot(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame);
+#if defined(CONFIG_FIMC_IS_V6_0_0)
 static int fimc_is_ischain_dcp_shot(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame);
+#endif
 static int fimc_is_ischain_mcs_shot(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame);
 static int fimc_is_ischain_vra_shot(struct fimc_is_device_ischain *device,
@@ -3164,9 +3168,11 @@ int fimc_is_ischain_probe(struct fimc_is_device_ischain *device,
 	fimc_is_group_probe(groupmgr, &device->group_dis, NULL, device,
 		fimc_is_ischain_dis_shot,
 		GROUP_SLOT_DIS, ENTRY_DIS, "DXS", &fimc_is_subdev_dis_ops);
+#if defined(CONFIG_FIMC_IS_V6_0_0)
 	fimc_is_group_probe(groupmgr, &device->group_dcp, NULL, device,
 		fimc_is_ischain_dcp_shot,
 		GROUP_SLOT_DCP, ENTRY_DCP, "DCS", &fimc_is_subdev_dcp_ops);
+#endif
 	fimc_is_group_probe(groupmgr, &device->group_mcs, NULL, device,
 		fimc_is_ischain_mcs_shot,
 		GROUP_SLOT_MCS, ENTRY_MCS, "MXS", &fimc_is_subdev_mcs_ops);
@@ -3182,12 +3188,14 @@ int fimc_is_ischain_probe(struct fimc_is_device_ischain *device,
 	fimc_is_subdev_probe(&device->drc, instance, ENTRY_DRC, "DRC", NULL);
 	fimc_is_subdev_probe(&device->odc, instance, ENTRY_ODC, "ODC", NULL);
 	fimc_is_subdev_probe(&device->dnr, instance, ENTRY_DNR, "DNR", NULL);
+#if defined(CONFIG_FIMC_IS_V6_0_0)
 	fimc_is_subdev_probe(&device->dc1s, instance, ENTRY_DC1S, "D1S", &fimc_is_subdev_dcxs_ops);
 	fimc_is_subdev_probe(&device->dc0c, instance, ENTRY_DC0C, "D0C", &fimc_is_subdev_dcxc_ops);
 	fimc_is_subdev_probe(&device->dc1c, instance, ENTRY_DC1C, "D1C", &fimc_is_subdev_dcxc_ops);
 	fimc_is_subdev_probe(&device->dc2c, instance, ENTRY_DC2C, "D2C", &fimc_is_subdev_dcxc_ops);
 	fimc_is_subdev_probe(&device->dc3c, instance, ENTRY_DC3C, "D3C", &fimc_is_subdev_dcxc_ops);
 	fimc_is_subdev_probe(&device->dc4c, instance, ENTRY_DC4C, "D4C", &fimc_is_subdev_dcxc_ops);
+#endif
 
 	fimc_is_subdev_probe(&device->m0p, instance, ENTRY_M0P, "M0P", &fimc_is_subdev_mcsp_ops);
 	fimc_is_subdev_probe(&device->m1p, instance, ENTRY_M1P, "M1P", &fimc_is_subdev_mcsp_ops);
@@ -6010,6 +6018,7 @@ p_err:
 	return ret;
 }
 
+#if defined(CONFIG_FIMC_IS_V6_0_0)
 static int fimc_is_ischain_dcp_group_tag(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame,
 	struct camera2_node *ldr_node)
@@ -6106,6 +6115,7 @@ static int fimc_is_ischain_dcp_group_tag(struct fimc_is_device_ischain *device,
 p_err:
 	return ret;
 }
+#endif
 
 static int fimc_is_ischain_mcs_group_tag(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *frame,
@@ -6860,6 +6870,7 @@ p_err:
 	return ret;
 }
 
+#if defined(CONFIG_FIMC_IS_V6_0_0)
 static int fimc_is_ischain_dcp_shot(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *check_frame)
 {
@@ -6971,6 +6982,7 @@ p_err:
 
 	return ret;
 }
+#endif
 
 static int fimc_is_ischain_mcs_shot(struct fimc_is_device_ischain *device,
 	struct fimc_is_frame *check_frame)

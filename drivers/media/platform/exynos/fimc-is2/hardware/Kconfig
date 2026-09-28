@@ -28,6 +28,13 @@ config CAMERA_MC_SCALER_VER2_USE
         help
           use mc-scaler version 2(mcs param)
 
+config CAMERA_TDNR_VER2_USE
+        bool "Use TDNR in MC-SCALER S/W VERSION 2"
+        depends on CAMERA_MC_SCALER_VER2_USE
+        default n
+        help
+          use tdnr version 2(has compressor)
+
 source "drivers/media/platform/exynos/fimc-is2/hardware/api/Kconfig"
 endmenu
 
