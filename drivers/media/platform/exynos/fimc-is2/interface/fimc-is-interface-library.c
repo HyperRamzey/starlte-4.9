@@ -1820,8 +1820,10 @@ static void fimc_is_get_hybrid_fd_data(u32 instance,
 	struct fd_info *face_data,
 	struct fd_rectangle *fd_in_size)
 {
+#ifdef ENABLE_HYBRID_FD
 	int i;
 	unsigned long flags = 0;
+#endif
 	struct fimc_is_lib_vra *lib_vra = g_lib_vra;
 
 	if (unlikely(!lib_vra)) {
@@ -1888,8 +1890,9 @@ static void fimc_is_get_hybrid_fd_data(u32 instance,
 			fd_in_size->height);
 
 		spin_unlock_irqrestore(&fdae_info->slock, flags);
+	} else
 #endif
-	} else {
+	{
 		face_data->face_num = 0;
 	}
 }
