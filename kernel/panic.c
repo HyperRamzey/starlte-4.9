@@ -31,7 +31,14 @@
 #include <asm/core_regs.h>
 #include <soc/samsung/exynos-condbg.h>
 
-#ifdef CONFIG_SEC_DUMP_SUMMARY
+/*
+ * sec_debug.h is needed by two independent features in this file:
+ *   - CONFIG_SEC_DUMP_SUMMARY  -> sec_debug_save_panic_info()
+ *   - CONFIG_SEC_DEBUG_EXTRA_INFO -> sec_debug_set_extra_info_fault()
+ * Gating the include on SEC_DUMP_SUMMARY alone left the EXTRA_INFO fault
+ * hook without its enum/prototype whenever DUMP_SUMMARY is disabled.
+ */
+#if defined(CONFIG_SEC_DUMP_SUMMARY) || defined(CONFIG_SEC_DEBUG_EXTRA_INFO)
 #include <linux/sec_debug.h>
 #endif
 
