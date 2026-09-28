@@ -740,6 +740,47 @@ static struct platform_driver ramoops_driver = {
 
 static void ramoops_register_dummy(void)
 {
+	/*
+	 * Samsung's exynos7885 device tree has no ramoops node at all -- only
+	 * /reserved-memory/exynos,sec_debug_magic. ramoops_probe() therefore
+	 * never runs, pstore_register() is never called, and pstore silently
+	 * writes NOTHING. With PSTORE_CONSOLE off there is no pmsg record either,
+	 * so a panic leaves no trace at all and a hang is completely invisible.
+	 *
+	 * The bootloader does pass sec_debug.base=0x100000@0x915a0000, but that
+	 * is sec_debug's own log region, not a pstore one, and nothing parses it
+	 * into mem_address/mem_size. So the dummy path below is the only route
+	 * pstore has, and it used to be dead because mem_size is 0.
+	 *
+	 * Fall back to the DT's own reserved crash region. Verified on-device:
+	 * /proc/device-tree/reserved-memory/sec_debug_magic is 0x80000000,
+	 * 0x100000 (1 MiB). It is reserved, so memblock will not hand it out, and
+	 * sec_debug's *log* lives at 0x915a0000 (per sec_debug.base on the
+	 * cmdline), not here, so there is no collision with it.
+	 *
+	 * The only other claimant is kaslr_region=0x1000@0x80001000 from the
+	 * cmdline, 4 KiB inside this region. Pstore's record and console zones
+	 * are laid out from the base and this is a temporary diagnostic build;
+	 * if a future shipping kernel keeps this, offset the base past 0x80002000.
+	 *
+	 * An explicit ramoops.mem_address=/mem_size= on the cmdline still wins,
+	 * because we only fill these in when they are still zero.
+	 */
+	if (!mem_size) {
+		struct device_node *rmem;
+		struct resource res;
+
+		rmem = of_find_node_by_path("/reserved-memory/sec_debug_magic");
+		if (rmem && !of_address_to_resource(rmem, 0, &res)) {
+			mem_address = res.start;
+			mem_size = resource_size(&res);
+			pr_info("ramoops: no DT node, using "
+				"/reserved-memory/sec_debug_magic "
+				"0x%llx/0x%lx\n",
+				mem_address, mem_size);
+		}
+	}
+
 	if (!mem_size)
 		return;
 
