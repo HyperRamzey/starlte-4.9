@@ -30,7 +30,14 @@
 #include "../ion_priv.h"
 #include "ion_hpa_heap.h"
 
-static struct ion_device *ion_exynos;
+/* PORT-NOTE(ion): not static, matching the 4.4 donor (exynos_ion.c:35).
+ * drivers/misc/tzdev/3.0/ion_fd2phys.c declares it extern under
+ * CONFIG_ARCH_EXYNOS and refers to it in ionfd2phys_init(). Both are
+ * built-in (obj-y), so the link resolves without EXPORT_SYMBOL --
+ * the donor does not export it either. Making it file-static here, as
+ * the 4.9 port had it, is why CONFIG_ION_FD2PHYS produced an undefined
+ * reference once tzdev was actually compiled. */
+struct ion_device *ion_exynos;
 
 #define ION_SECURE_DMA_BASE	0x80000000
 #define ION_SECURE_DMA_END	0xE0000000

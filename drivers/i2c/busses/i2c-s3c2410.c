@@ -1370,6 +1370,95 @@ static const struct dev_pm_ops s3c24xx_i2c_dev_pm_ops = {
 #define S3C24XX_DEV_PM_OPS NULL
 #endif
 
+#ifdef CONFIG_SAMSUNG_TUI
+/* PORT-NOTE(i2c-s3c2410): stui_i2c_lock()/stui_i2c_unlock() are what the
+ * trusted-UI path uses to hand this I2C controller to the secure world, and
+ * 4.4 defined them HERE, in the controller driver, not in drivers/misc/tui.
+ * consumers are the touchscreen drivers' stui_tsp_enter()/stui_tsp_exit():
+ * ist40xx.c:2150,2167 (and in 4.4 also melfas_mss100, zinitix_zt75xx_ts and
+ * sec_ts). The whole #ifdef CONFIG_SAMSUNG_TUI block was not carried into this
+ * 4.9 port, so enabling CONFIG_SAMSUNG_TUI plus IST4050 turned those externs
+ * into undefined references at link.
+ *
+ * Copied verbatim from the 4.4 donor (i2c-s3c2410.c:1500-1567), placed in the
+ * same position -- after the remove path, before the PM ops and the platform
+ * driver. Everything it uses is already present here: exynos-powermode.h is
+ * included at line 41, struct s3c24xx_i2c has idle_ip_index (line 143) and is
+ * already using exynos_update_ip_idle_status() at lines 849 and 864.
+ *
+ * Note the deliberate asymmetry with the TUI port notes: TUI's
+ * stui_hal_touch.c provides weak stui_tsp_enter/exit stubs, but the i2c half
+ * of the same handshake has no such stub, because in 4.4 the controller
+ * provided it. Both halves must exist for a TUI session to start.
+ */
+#ifdef CONFIG_PM_RUNTIME
+static int stui_pm_ret;
+#endif /* CONFIG_PM_RUNTIME */
+int stui_i2c_lock(struct i2c_adapter *adap)
+{
+	int ret = 0;
+	static struct s3c24xx_i2c *stui_i2c;
+
+	if (!adap) {
+		pr_err("cannot get adapter\n");
+		return -1;
+	}
+
+	i2c_lock_adapter(adap);
+	stui_i2c = (struct s3c24xx_i2c *)adap->algo_data;
+
+#ifdef CONFIG_PM_RUNTIME
+	stui_pm_ret = pm_runtime_get_sync(stui_i2c->dev);
+	if (stui_pm_ret < 0) {
+		ret = clk_enable(stui_i2c->clk);
+		if (ret)
+			goto out_err;
+	}
+#else /* CONFIG_PM_RUNTIME */
+	ret = clk_enable(stui_i2c->clk);
+	if (ret)
+		goto out_err;
+#endif /* CONFIG_PM_RUNTIME */
+
+	exynos_update_ip_idle_status(stui_i2c->idle_ip_index, 0);
+
+	return 0;
+
+out_err:
+	i2c_unlock_adapter(adap);
+	return ret;
+}
+
+int stui_i2c_unlock(struct i2c_adapter *adap)
+{
+	static struct s3c24xx_i2c *stui_i2c;
+
+	if (!adap) {
+		pr_err("cannot get adapter\n");
+		return -1;
+	}
+
+	stui_i2c = (struct s3c24xx_i2c *)adap->algo_data;
+
+#ifdef CONFIG_PM_RUNTIME
+	if (stui_pm_ret < 0) {
+		clk_disable(stui_i2c->clk);
+	} else {
+		pm_runtime_mark_last_busy(stui_i2c->dev);
+		pm_runtime_put_autosuspend(stui_i2c->dev);
+	}
+#else /* CONFIG_PM_RUNTIME */
+	clk_disable(stui_i2c->clk);
+#endif /* CONFIG_PM_RUNTIME */
+
+	exynos_update_ip_idle_status(stui_i2c->idle_ip_index, 1);
+
+	i2c_unlock_adapter(adap);
+
+	return 0;
+}
+#endif /* CONFIG_SAMSUNG_TUI */
+
 /* device driver for platform bus bits */
 
 static struct platform_driver s3c24xx_i2c_driver = {
