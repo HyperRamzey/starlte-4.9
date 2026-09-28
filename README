@@ -8,21 +8,38 @@ upstream document and is unmodified.**
 |---|---|
 | **Target** | Galaxy A30s, Exynos7885, crDroid 16, 4.4.302-p6 → **4.9.219** |
 | **Branch** | `crdroid-port-4.9` |
+| **HEAD** | `b29ad447f74b367656c480e8ea3318960fa3f4c6` (remote == local) |
 | **Base** | `exynos-linux-stable/starlte` `tw10-android-4.9-q` (`8a9b2212`) |
-| **Status** | **compiles clean — reaching the `vmlinux` link, 29 undefined symbols** |
+| **Build** | **GREEN — compiles *and* links, every artefact produced and md5-recorded** |
+| **Hardware** | **NOT PROVEN — device-testing-ready, never booted. Flashing needs explicit user approval** |
 | **Doc** | [`4.9port.md`](4.9port.md) — full detail and evidence |
 
 ## Build progress
 
 | metric | value |
 |---|---|
+| **Build result** | **RC=0** |
 | **Compile errors** | **0** |
-| **Objects compiled** | **3,516** |
-| Link stage | **reached** — `ld.bfd` is linking `vmlinux` |
-| `vmlinux` / `Image` | not produced — 29 undefined symbols |
-| `defconfig` target | `rc=0`, **0 errors, 0 warnings**, stable under `streamline_config.pl` |
-| Commits on the vendor base | **141** |
+| **Undefined references** | **0** — the 29 are resolved |
+| **Link** | `ld.bfd` links `vmlinux` cleanly |
+| **Objects compiled** | **3,613** |
+| **DTC steps** | **11** |
+| Linker warnings | **3**, all expected `ld.bfd` RWX `LOAD`-segment notices |
+| Modules | **1** (`kutf.ko`) |
+| Commits on the vendor base | **154** (base `66b4aa05588a`) |
 | Toolchain | Neutron Clang 24 (target) + pinned `clang-r563880c` (host), `-Werror` |
+
+### How the green build was produced
+
+- The target is **`all`**, not `Image`. `Image` can never produce a DTB on this tree:
+  `arch/arm64/Makefile` recurses for `Image: vmlinux` with no `DTB_OBJS` dependency, so an
+  `Image`-only build silently skips every device-tree step and yields no `.dtb` and no `.dtbo`.
+- The build worktree `/root/port49/build_7885` was **force re-pinned and asserted equal to main
+  HEAD before the build**, so the artefacts provably come from the commit named above rather than
+  from a stale worktree.
+- `.config` was **regenerated after the re-pin**, not before, so the configuration is from HEAD too.
+- The 3 RWX `LOAD` warnings are expected and benign; they are a property of this Samsung tree,
+  not of the port.
 
 ### Progress history
 
@@ -35,8 +52,10 @@ upstream document and is unmodified.**
 | DCP + iovmm + interface-library | 18 | 3,511 |
 | s2mu106 enum tail + platform_mif + panic.c + camera | 1 | 3,511 |
 | DVFS stubs removed, `CONFIG_MFD_S2MPS18` cleared | **0** | 3,516 |
+| undefined symbols resolved, `vmlinux` links, all artefacts built | **0** | **3,613** |
 
-Per-subsystem objects — the real measure of progress:
+Per-subsystem objects, as recorded at the 0-error / 3,516-object checkpoint — the real measure of
+progress:
 
 | subtree | objects | subsystem |
 |---|---|---|
@@ -55,19 +74,55 @@ Per-subsystem objects — the real measure of progress:
 | `drivers/power` | 9 | S2MU106 power |
 | `drivers/vision` | **0** | IVA removed — wrong SoC |
 
-## What the remaining 29 undefined symbols are
+## Artefacts
 
-Every one is a CONFIG-gated provider (or 9810-only code) whose caller is built. The tree has **no
-compile errors left**. Full table with per-symbol notes in [`4.9port.md`](4.9port.md) §1.
+Every artefact below is produced, sized and md5-recorded. Staged copies live in
+`/mnt/g/projects/Derp/hm_mod/bootimg_49/` next to an `MD5SUMS.txt`.
 
-| group | count | examples |
+| artefact | size (B) | md5 |
 |---|---|---|
-| camera DCP / subdev / TDNR / CSI-dump / sensor-I2C | 11 | `fimc_is_subdev_dcp_ops`, `csi_hw_phy_dump` |
-| haptic | 4 | `sec_haptic_register`, `haptic_homekey_press` |
-| 9810-only CAL + globals | 4 | `cal_pll_mmc_check`, `exynos_pcie_phy_init`, `bootmode`, `pn_flag` |
-| MUIC / AFC | 2 | `muic_afc_set_voltage`, `max77865_hv_muic_charger_init` |
-| display panel | 1 | `get_lcd_info` |
-| cal-if CPU inform, ACPM, regulator, SEC debug, ION | 7 | `pmucal_cpuinform_list`, `exynos_acpm_set_flag`, `s2m_ldo_set_mode` |
+| `Image` | 23,605,272 | `739ae36c16d0a67f68efb3156c1a25ed` |
+| `vmlinux` | 227,612,976 | `7d1d548b96fe26479827b55a83082b62` |
+| `exynos7885.dtb` | 91,136 | `4c69772b09d5ed21c53153499d483cbe` |
+| `exynos7904-a30s_eur_open_00.dtbo` | 102,996 | `413efb416ed4249814cea97d35abe717` |
+| `exynos7904-a30s_eur_open_01.dtbo` | 102,832 | `0ae665616a5674e9c9256783f6b91298` |
+| `exynos7904-a30s_eur_open_02.dtbo` | 103,516 | `455a7e558d7bf825b2b0f3821e9962b2` |
+| `exynos7904-a30s_eur_open_03.dtbo` | 103,716 | `15830a4856638e5b463c15a5993abf88` |
+| `dtb.img` (kernel dtbtool, `DTBH` v2) | 512,000 | `99d145d45aba2f4a8fca930314555796` |
+| `dtb.img` (Samsung `mkdtboimg`, magic `d7 b7 ab 1e`) | 92,160 | `1860e75380493b4462afab9c1e312e1e` |
+| `boot.img` | 25,260,032 | `a82b5c1b0c680c20df7dea03ad0c2bdb` |
+
+### The boot image
+
+- It contains **no device tree** — kernel plus ramdisk only. The DT lives on the separate `dtb`
+  and `dtbo` partitions, so the boot image alone is not sufficient to test the port.
+- Built with the ROM's own `mkbootimg`, with parameters taken **verbatim** from
+  `unpack_bootimg --format=mkbootimg` on the shipping image.
+- The header was verified field-by-field against the shipping `boot.img`: identical except
+  `kernel_size`, both payloads round-trip md5-identical, and the `ANDROID!` magic is intact.
+- Fits the 33,363,968 B `boot` partition with **8,103,936 B** of headroom.
+- **Samsung `mkbootimg` trap:** load addresses are passed as `--kernel_offset`,
+  `--ramdisk_offset`, `--tags_offset`, `--second_offset` and `--base`. `--kernel_load_addr` is
+  **rejected** by this tool, so the flag name that other `mkbootimg` forks accept fails at
+  argument parsing.
+
+## Resolved: the 29 undefined symbols
+
+The 29 undefined symbols reported when the link first failed are **all resolved**. The final build
+reports **0 undefined references** and produces `vmlinux`. The breakdown is kept below as the
+record of what was blocking the link, not as a list of open work.
+
+| group | count | examples | state |
+|---|---|---|---|
+| camera DCP / subdev / TDNR / CSI-dump / sensor-I2C | 11 | `fimc_is_subdev_dcp_ops`, `csi_hw_phy_dump` | resolved |
+| haptic | 4 | `sec_haptic_register`, `haptic_homekey_press` | resolved |
+| 9810-only CAL + globals | 4 | `cal_pll_mmc_check`, `exynos_pcie_phy_init`, `bootmode`, `pn_flag` | resolved |
+| MUIC / AFC | 2 | `muic_afc_set_voltage`, `max77865_hv_muic_charger_init` | resolved |
+| display panel | 1 | `get_lcd_info` | resolved |
+| cal-if CPU inform, ACPM, regulator, SEC debug, ION | 7 | `pmucal_cpuinform_list`, `exynos_acpm_set_flag`, `s2m_ldo_set_mode` | resolved |
+
+Each one was a CONFIG-gated provider (or 9810-only code) whose caller was being built. Per-symbol
+notes are in [`4.9port.md`](4.9port.md) §1.
 
 ## Resolved this session
 
@@ -86,16 +141,32 @@ compile errors left**. Full table with per-symbol notes in [`4.9port.md`](4.9por
   **0 times** in the stock DTB and all four overlays; `s2mpu08` appears 33 times per overlay.
 - LLVM `objdump`/`objcopy`/`readelf` wrappers for the aarch64 prefixes — `Error 127` from the
   missing `aarch64-linux-objdump` was silently costing objects.
+- The 29 undefined symbols are resolved and the link is clean. The final build links `vmlinux`
+  with **0 undefined references** and produces every artefact listed above.
 
 ## Still open
 
-1. Resolve the 29 undefined symbols so `vmlinux` links.
-2. The DTS is **missing every per-sensor camera node** (CIS modules, EEPROMs, flash GPIO, DW9808).
+1. **Device testing. Nothing from this port has ever been booted.** The build is complete and
+   every artefact exists, but no code from this tree has ever run on hardware. Flashing requires
+   **explicit user approval**, and `/data` must never be written.
+2. **The DTS is missing every per-sensor camera node** (CIS modules, EEPROMs, flash GPIO, DW9808).
    Drivers compile and compatibles are correct, but nothing will probe.
-3. TEEGRIS wired but disabled; `startup.tazar` recovered out of tree.
-4. Stock overlay marks `s2mu106-charger` disabled — needs a decision.
+3. **Touch cannot work as-is.** The Imagis IST40xx source is **absent** even though the device tree
+   carries a valid node, so there is no driver to bind to it.
+4. **Camera output would be uncalibrated.** The 7885 camera stack uses `VENDER_MCD` rather than
+   `VENDER_MCD_V2`, and the A30s EEPROM calibration data is absent.
+5. **TEEGRIS wired but disabled**; `startup.tazar` is recovered out of tree and still needed.
+6. **Highest delivery risk — the `dtbo` signature.** The board ships an **AVB-keyed prebuilt**
+   `dtbo.img` on partition p18. A self-built, unsigned dtbo may be **refused by the bootloader**,
+   and the signing key is not available. This can block the port regardless of build quality, so
+   it should be settled before anything else is attempted.
+7. **`model_info-hw_rev` needs first-boot validation.** It changes behaviour in four drivers that
+   previously received fallback values, so its effect is unverified on hardware.
+8. Stock overlay marks `s2mu106-charger` disabled — needs a decision.
 
-**No green build has ever been produced for this target.**
+**The build is green and complete: it compiles, it links, and every artefact is produced and
+md5-recorded. The port is device-testing-ready and not hardware-proven — do not flash without
+explicit user approval, and never write `/data`.**
 <!-- 4.9-PORT-STATUS-END -->
 
 
