@@ -18,6 +18,11 @@
 #include "exynos7904-a30s_fingerprint_00.dtsi"
 
 / {
+	model_info-chip = <7885>;
+	model_info-platform = "android";
+	model_info-subtype = "samsung";
+	model_info-hw_rev = <0>;
+	model_info-hw_rev_end = <0>;
 	compatible = "samsung,A30S EUR OPEN 00", "samsung,EXYNOS7904";
 
 	dtbo-hw_rev = <0>;

@@ -30,6 +30,11 @@
 #include "exynos7885-pm-extra.dtsi"
 
 / {
+	model_info-chip = <7885>;
+	model_info-platform = "android";
+	model_info-subtype = "samsung";
+	model_info-hw_rev = <0>;
+	model_info-hw_rev_end = <255>;
 	compatible = "samsung,armv8", "samsung,exynos7885";
 	dtb-hw_rev = <0>;
 	dtb-hw_rev_end = <255>;
