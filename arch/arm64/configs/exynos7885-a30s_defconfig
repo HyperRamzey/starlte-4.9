@@ -2417,7 +2417,7 @@ CONFIG_PINCTRL_SAMSUNG=y
 CONFIG_PINCTRL_EXYNOS=y
 # CONFIG_SEC_GPIO_DVS is not set
 CONFIG_PINCTRL_MADERA=y
-CONFIG_PINCTRL_CS47L92=y
+# CONFIG_PINCTRL_CS47L92=y is not set  # board contamination, see note below
 CONFIG_GPIOLIB=y
 CONFIG_OF_GPIO=y
 # CONFIG_DEBUG_GPIO is not set
@@ -2751,7 +2751,7 @@ CONFIG_MFD_MADERA_SPI=y
 # CONFIG_MFD_CS47L35 is not set
 # CONFIG_MFD_CS47L85 is not set
 # CONFIG_MFD_CS47L90 is not set
-CONFIG_MFD_CS47L92=y
+# CONFIG_MFD_CS47L92=y is not set  # board contamination, see note below
 # CONFIG_PMIC_DA903X is not set
 # CONFIG_MFD_DA9052_SPI is not set
 # CONFIG_MFD_DA9052_I2C is not set
@@ -3520,7 +3520,7 @@ CONFIG_SND_SOC_WM_ADSP=y
 # CONFIG_SND_SOC_CS4271_SPI is not set
 # CONFIG_SND_SOC_CS42XX8_I2C is not set
 # CONFIG_SND_SOC_CS4349 is not set
-CONFIG_SND_SOC_CS47L92=y
+# CONFIG_SND_SOC_CS47L92=y is not set  # board contamination, see note below
 # CONFIG_SND_SOC_CS53L30 is not set
 # CONFIG_SND_SOC_ES8328 is not set
 # CONFIG_SND_SOC_GTM601 is not set
@@ -6065,3 +6065,16 @@ CONFIG_TEEGRIS_VERSION=3
 CONFIG_SAMSUNG_TUI=y
 # CONFIG_SAMSUNG_TUI_TEST is not set
 CONFIG_TOUCHSCREEN_IST4050=y
+
+# --- removed: Cirrus Logic CS47L92 codec, board contamination ---
+# CONFIG_MFD_CS47L92 selects PINCTRL_CS47L92, which kconfig reports as having
+# unmet direct dependencies. That warning forces kconfig into "Restart config"
+# mode, which then re-asks EVERY unset visible symbol -- including the kernel
+# compression choice -- and the non-interactive build dies on
+# "choice[1-6?]: aborted!". It is not this board's hardware: neither the stock
+# 4.4.177 config nor the live crDroid 4.4 config contains a single CS47L92
+# symbol. The A30s audio path is S2MU106 + codec3035. Nothing selects
+# PINCTRL_CS47L92 except MFD_CS47L92, so all three go together.
+# CONFIG_MFD_CS47L92 is not set
+# CONFIG_SND_SOC_CS47L92 is not set
+# CONFIG_PINCTRL_CS47L92 is not set
