@@ -6093,7 +6093,7 @@ CONFIG_TZDEV_BOOST=y
 # CONFIG_TEEGRIS_VERSION is not set
 # CONFIG_SAMSUNG_TUI is not set
 # CONFIG_SAMSUNG_TUI_TEST is not set
-CONFIG_TOUCHSCREEN_IST4050=y
+# CONFIG_TOUCHSCREEN_IST4050 is not set
 
 # --- removed: Cirrus Logic CS47L92 codec, board contamination ---
 # CONFIG_MFD_CS47L92 selects PINCTRL_CS47L92, which kconfig reports as having
