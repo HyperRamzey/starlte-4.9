@@ -133,11 +133,7 @@ static u16 setfile_vision_5f1_fps_30_26MHz[][2] = {
 
 static struct fimc_is_sensor_cfg config_5f1[] = {
 	/* 2400x2400@30fps */
-	FIMC_IS_SENSOR_CFG(2400, 2400, 30, 0, 0, CSI_DATA_LANES_2, 2041, CSI_MODE_CH0_ONLY, PD_NONE,
-		VC_IN(0, HW_FORMAT_RAW8, 2400, 2400), VC_OUT(HW_FORMAT_RAW8, VC_NOTHING, 0, 0),
-		VC_IN(1, HW_FORMAT_UNKNOWN, 0, 0), VC_OUT(HW_FORMAT_UNKNOWN, VC_NOTHING, 0, 0),
-		VC_IN(2, HW_FORMAT_USER, 0, 0), VC_OUT(HW_FORMAT_USER, VC_NOTHING, 0, 0),
-		VC_IN(3, HW_FORMAT_UNKNOWN, 0, 0), VC_OUT(HW_FORMAT_UNKNOWN, VC_NOTHING, 0, 0))
+	FIMC_IS_SENSOR_CFG_EXT(2400, 2400, 30, 0, 0, CSI_DATA_LANES_2, 2041, 0, 1, 2)
 };
 
 static void sensor_5f1_vsync_work(struct work_struct *data)

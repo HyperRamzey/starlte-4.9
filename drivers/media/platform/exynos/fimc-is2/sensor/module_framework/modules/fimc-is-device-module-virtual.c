@@ -42,27 +42,11 @@
 static struct fimc_is_sensor_cfg config_virtual[] = {
 	/* width, height, fps, settle, mode, lane, speed, interleave, pd_mode */
 	/* 5344x3008@30fps */
-	FIMC_IS_SENSOR_CFG(4032, 3024, 30, 0, 0, CSI_DATA_LANES_4, 1500, 0, PD_NONE,
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0)),
+	FIMC_IS_SENSOR_CFG_EXT(4032, 3024, 30, 0, 0, CSI_DATA_LANES_4, 1500, 0, 0, 0),
 	/* 3264x2448@30fps */
-	FIMC_IS_SENSOR_CFG(3264, 2448, 30, 0, 0, CSI_DATA_LANES_2, 1500, 0, PD_NONE,
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0)),
-	FIMC_IS_SENSOR_CFG(960, 800, 30, 0, 0, CSI_DATA_LANES_4, 1500, CSI_MODE_VC_DT, PD_NONE,
-		VC_IN(0, HW_FORMAT_RAW8, 960, 800), VC_OUT(HW_FORMAT_RAW8, VC_NOTHING, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0)),
-	FIMC_IS_SENSOR_CFG(1920, 800, 30, 0, 0, CSI_DATA_LANES_4, 1500, CSI_MODE_VC_DT, PD_NONE,
-		VC_IN(0, HW_FORMAT_YUV422_8BIT, 1920, 800), VC_OUT(HW_FORMAT_RAW8, VC_NOTHING, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0),
-		VC_IN(0, 0, 0, 0), VC_OUT(0, 0, 0, 0)),
+	FIMC_IS_SENSOR_CFG_EXT(3264, 2448, 30, 0, 0, CSI_DATA_LANES_2, 1500, 0, 0, 0),
+	FIMC_IS_SENSOR_CFG_EXT(960, 800, 30, 0, 0, CSI_DATA_LANES_4, 1500, 0, 0, 0),
+	FIMC_IS_SENSOR_CFG_EXT(1920, 800, 30, 0, 0, CSI_DATA_LANES_4, 1500, 0, 0, 0),
 };
 
 static int sensor_virtual_open(struct v4l2_subdev *sd,

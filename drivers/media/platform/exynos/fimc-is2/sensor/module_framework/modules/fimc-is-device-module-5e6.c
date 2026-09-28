@@ -211,11 +211,7 @@ static u16 setfile_vision_5e6_fps_30[][2] = {
 
 static struct fimc_is_sensor_cfg config_5e6[] = {
 			/* width, height, fps, settle, mode, lane, speed, interleave, pd_mode */
-	FIMC_IS_SENSOR_CFG(1920, 1920, 30, 0, 0, CSI_DATA_LANES_2, 1400, CSI_MODE_VC_DT, PD_NONE,
-		VC_IN(0, HW_FORMAT_RAW8, 1920, 1920), VC_OUT(HW_FORMAT_RAW10, VC_NOTHING, 0, 0),
-		VC_IN(1, HW_FORMAT_UNKNOWN, 0, 0), VC_OUT(HW_FORMAT_UNKNOWN, VC_NOTHING, 0, 0),
-		VC_IN(2, HW_FORMAT_UNKNOWN, 0, 0), VC_OUT(HW_FORMAT_UNKNOWN, VC_NOTHING, 0, 0),
-		VC_IN(3, HW_FORMAT_UNKNOWN, 0, 0), VC_OUT(HW_FORMAT_UNKNOWN, VC_NOTHING, 0, 0)),
+	FIMC_IS_SENSOR_CFG_EXT(1920, 1920, 30, 0, 0, CSI_DATA_LANES_2, 1400, 0, 1, 2),
 };
 
 static void sensor_5e6_vsync_work(struct work_struct *data)
