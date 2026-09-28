@@ -50,7 +50,7 @@ MODULE_PARM_DESC(beacon_ms,
 
 static void p49_beacon_fire(struct work_struct *w);
 
-static struct work_struct p49_beacon_work;
+static struct delayed_work p49_beacon_work;
 
 static void p49_beacon_fire(struct work_struct *w)
 {
@@ -85,7 +85,7 @@ static int __init p49_beacon_init(void)
 	pr_emerg("p49-bootbeacon: armed, will panic in %d ms if boot does not "
 		 "complete\n", p49_beacon_ms);
 
-	INIT_WORK(&p49_beacon_work, p49_beacon_fire);
+	INIT_DELAYED_WORK(&p49_beacon_work, p49_beacon_fire);
 	schedule_delayed_work(&p49_beacon_work, msecs_to_jiffies(p49_beacon_ms));
 	return 0;
 }
