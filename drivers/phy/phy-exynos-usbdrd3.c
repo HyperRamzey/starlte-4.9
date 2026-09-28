@@ -96,6 +96,17 @@
  *    why this driver needs no part of phy-samsung-usb3-cal.o, which is why
  *    CONFIG_PHY_SAMSUNG_USB_CAL keeps building only phy-exynos-usb3p1.o and
  *    phy-exynos-usbdp.o here while 4.4 built three objects.
+ *
+ *  - 4.9's include/linux/err.h writes IS_ERR_VALUE(x) as
+ *    unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO), i.e. it
+ *    forces the argument through a void * before comparing.  4.4's version had no
+ *    (void *) and so a plain int was fine.  In exynos_usbdrd_clk_init() the two
+ *    of_property_count_strings() results are ints, and clang 24 rejects the
+ *    int -> void * narrowing under -Werror,-Wint-to-void-pointer-cast.  Both sites
+ *    are therefore cast to unsigned long at the call site, which is the same
+ *    integer domain IS_ERR() already uses internally and leaves the numeric
+ *    comparison unchanged.  Do not "fix" this in err.h: it is global, and this is
+ *    the already-established precedent elsewhere in this port.
  */
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
@@ -204,7 +215,7 @@ static int exynos_usbdrd_phyclk_get(struct exynos_usbdrd_phy *phy_drd)
 	int		i, j, ret;
 
 	phyclk_count = of_property_count_strings(dev->of_node, "phyclk_mux");
-	if (IS_ERR_VALUE(phyclk_count)) {
+	if (IS_ERR_VALUE((unsigned long)phyclk_count)) {
 		dev_err(dev, "invalid phyclk list in %s node\n",
 							dev->of_node->name);
 		return -EINVAL;
@@ -253,7 +264,7 @@ static int exynos_usbdrd_phyclk_get(struct exynos_usbdrd_phy *phy_drd)
 	}
 
 	clk_count = of_property_count_strings(dev->of_node, "clock-names");
-	if (IS_ERR_VALUE(clk_count)) {
+	if (IS_ERR_VALUE((unsigned long)clk_count)) {
 		dev_err(dev, "invalid clk list in %s node", dev->of_node->name);
 		return -EINVAL;
 	}
