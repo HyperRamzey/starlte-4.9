@@ -6114,8 +6114,10 @@ CONFIG_TOUCHSCREEN_IST4050=y
 # which is exactly why every failed boot produced pmsg-ramoops-0 (written by
 # the recovery kernel) and never a dmesg-ramoops-*, even though the kernel
 # obviously died. With pmsg off, ramoops is reserved for the dmesg record.
-# Also raised the record from the 10240-byte default so a real boot log fits.
+# There is deliberately no size knob here: CONFIG_PSTORE_DEFAULT_KMSG_BYTES does not
+# exist anywhere in this tree, and the ramoops region is sized by the DT
+# (exynos,sec_debug_magic) rather than by config, so with pmsg off the dmesg
+# record gets the whole region.
 # CONFIG_PSTORE_CONSOLE is not set
-CONFIG_PSTORE_DEFAULT_KMSG_BYTES=65536
 CONFIG_P49_BOOTBEACON=y
 CONFIG_P49_BOOTBEACON_MS=10000

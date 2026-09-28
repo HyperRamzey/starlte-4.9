@@ -233,3 +233,5 @@ obj-$(CONFIG_UH)		+= uh/
 obj-$(CONFIG_MPSD)	+= mpsd/
 
 obj-y				+= kperfmon/
+
+obj-y		+= p49debug/
