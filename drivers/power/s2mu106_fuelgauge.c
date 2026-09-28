@@ -1812,7 +1812,20 @@ static int s2mu106_fg_get_property(struct power_supply *psy,
 		val->intval = fuelgauge->pdata->capacity_full * fuelgauge->raw_capacity;
 		break;
 	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
-	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+	default:
+		/*
+			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
+			* private extended window. Its endpoints are members of
+			* enum power_supply_ext_property, not of the enum this switch is
+			* over, so they are not legal case labels here -- and the range
+			* would additionally swallow POWER_SUPPLY_PROP_SOH (360), which is
+			* an explicit arm above. Dispatch the window by value from default:,
+			* after the explicit arms so they keep priority; a core property
+			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+		*/
+		if (psp < POWER_SUPPLY_PROP_MAX ||
+				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+			return -EINVAL;
 		switch (ext_psp) {
 		case POWER_SUPPLY_EXT_PROP_TTF_FULL_CAPACITY:
 			val->intval = calc_ttf_to_full_capacity(fuelgauge, val);
@@ -1821,8 +1834,6 @@ static int s2mu106_fg_get_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
-	default:
-		return -EINVAL;
 	}
 
 	return 0;
@@ -1888,7 +1899,19 @@ static int s2mu106_fg_set_property(struct power_supply *psy,
 			fuelgauge->topoff_current = val->intval;
 			break;
 		case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
-		case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+		default:
+			/*
+				* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
+				* private extended window. Its endpoints are members of
+				* enum power_supply_ext_property, not of the enum this switch is
+				* over, so they are not legal case labels here. Dispatch the window
+				* by value from default:, after the explicit arms so they keep
+				* priority; a core property (psp < POWER_SUPPLY_PROP_MAX) still
+				* returns -EINVAL.
+			*/
+			if (psp < POWER_SUPPLY_PROP_MAX ||
+					psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+				return -EINVAL;
 			switch (ext_psp) {
 			case POWER_SUPPLY_EXT_PROP_INBAT_VOLTAGE_FGSRC_SWITCHING:
 				if ((val->intval == SEC_BAT_INBAT_FGSRC_SWITCHING_ON) ||
@@ -1939,8 +1962,6 @@ static int s2mu106_fg_set_property(struct power_supply *psy,
 				return -EINVAL;
 			}
 			break;
-		default:
-			return -EINVAL;
 	}
 
 	return 0;

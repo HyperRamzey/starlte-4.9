@@ -315,7 +315,20 @@ static int s2mu106_pm_get_property(struct power_supply *psy,
 	 */
 	switch (psp) {
 	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
-	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+	default:
+		/*
+			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
+			* private extended window. It sits directly above
+			* POWER_SUPPLY_EXT_PROP_MAX, but its endpoints are members of
+			* enum power_supply_ext_property, not of enum power_supply_property,
+			* so they cannot be case labels on a switch over psp. The window is
+			* contiguous with the shared window handled by the arm above, so
+			* dispatch it by value from default: instead; a core property
+			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+		*/
+		if (psp < POWER_SUPPLY_PROP_MAX ||
+				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+			return -EINVAL;
 		switch (ext_psp) {
 		case POWER_SUPPLY_PROP_VCHGIN:
 			val->intval = s2mu106_pm_get_vchgin(pmeter);
@@ -357,8 +370,6 @@ static int s2mu106_pm_get_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
-	default:
-		return -EINVAL;
 	}
 	return 0;
 }
@@ -373,7 +384,20 @@ static int s2mu106_pm_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
-	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+	default:
+		/*
+			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
+			* private extended window. It sits directly above
+			* POWER_SUPPLY_EXT_PROP_MAX, but its endpoints are members of
+			* enum power_supply_ext_property, not of enum power_supply_property,
+			* so they cannot be case labels on a switch over psp. The window is
+			* contiguous with the shared window handled by the arm above, so
+			* dispatch it by value from default: instead; a core property
+			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+		*/
+		if (psp < POWER_SUPPLY_PROP_MAX ||
+				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+			return -EINVAL;
 		switch (ext_psp) {
 		case POWER_SUPPLY_PROP_CO_ENABLE:
 			s2mu106_pm_enable(pmeter, CONTINUOUS_MODE, val->intval);
@@ -388,8 +412,6 @@ static int s2mu106_pm_set_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
-	default:
-		return -EINVAL;
 	}
 	return 0;
 }

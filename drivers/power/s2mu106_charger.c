@@ -1077,7 +1077,21 @@ static int s2mu106_chg_set_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
-	case POWER_SUPPLY_EXT_PROP_S2MU106_BASE ... POWER_SUPPLY_EXT_PROP_S2MU106_MAX:
+	default:
+		/*
+			* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
+			* private extended window. Its endpoints are members of
+			* enum power_supply_ext_property, not of the enum this switch is
+			* over, so they are not legal case labels here -- and the range
+			* would additionally swallow POWER_SUPPLY_PROP_FACTORY_MODE (359)
+			* and POWER_SUPPLY_PROP_FUELGAUGE_RESET (357), which are explicit
+			* arms above. Dispatch the window by value from default:, after the
+			* explicit arms so they keep priority; a core property
+			* (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+		*/
+		if (psp < POWER_SUPPLY_PROP_MAX ||
+				psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+			return -EINVAL;
 		switch (ext_psp) {
 		case POWER_SUPPLY_EXT_PROP_FACTORY_VOLTAGE_REGULATION:
 			/* enable EN_JIG_AP */
@@ -1131,8 +1145,6 @@ static int s2mu106_chg_set_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		break;
-	default:
-		return -EINVAL;
 	}
 
 	return 0;

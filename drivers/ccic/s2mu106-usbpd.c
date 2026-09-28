@@ -3404,7 +3404,20 @@ static int s2mu106_usbpd_set_property(struct power_supply *psy,
 			data &= ~(S2MU106_REG_RD_OR_VBUS_MUX_SEL);
 			s2mu106_usbpd_write_reg(i2c, S2MU106_REG_PLUG_CTRL_VBUS_MUX, data);
 			break;
-		case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+		default:
+			/*
+				* POWER_SUPPLY_EXT_PROP_S2MU106_BASE..MAX (342..367) is the 7885
+				* private extended window; it holds POWER_SUPPLY_EXT_PROP_USBPD_RESET
+				* (358). It is contiguous with the shared window handled by the arm
+				* above, but its endpoints are members of enum power_supply_ext_property,
+				* not of enum power_supply_property, so neither that range nor
+				* POWER_SUPPLY_PROP_USBPD_RESET itself is a legal case label on a
+				* switch over psp. Dispatch the window by value from default: instead;
+				* a core property (psp < POWER_SUPPLY_PROP_MAX) still returns -EINVAL.
+			*/
+			if (psp < POWER_SUPPLY_PROP_MAX ||
+					psp > POWER_SUPPLY_EXT_PROP_S2MU106_MAX)
+				return -EINVAL;
 			switch (ext_psp) {
 			case POWER_SUPPLY_EXT_PROP_CURRENT_MEASURE:
 				s2mu106_usbpd_read_reg(i2c, 0x01, &data);
@@ -3418,12 +3431,17 @@ static int s2mu106_usbpd_set_property(struct power_supply *psy,
 			default:
 				break;
 			}
-		case POWER_SUPPLY_PROP_USBPD_RESET:
+			/*
+				* 4.4 has no break between the extended range and
+				* POWER_SUPPLY_PROP_USBPD_RESET, so every extended property --
+				* POWER_SUPPLY_EXT_PROP_CURRENT_MEASURE included -- fell through into
+				* that arm. The VBUS wakeup toggle was therefore the common tail of
+				* both 4.4 arms; it is kept as that common tail here instead of as a
+				* fall-through, so the donor behaviour is unchanged.
+			*/
 			s2mu106_usbpd_set_vbus_wakeup(pdic_data, VBUS_WAKEUP_DISABLE);
 			s2mu106_usbpd_set_vbus_wakeup(pdic_data, VBUS_WAKEUP_ENABLE);
 			break;
-		default:
-			return -EINVAL;
 	}
 	return 0;
 }
