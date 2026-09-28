@@ -150,11 +150,9 @@ struct dcp_param_set {
 	struct param_dma_input		dma_input_s;	/* slave input */
 	struct param_dma_output		dma_output_m;	/* master output */
 	struct param_dma_output		dma_output_s;	/* slave output */
-	struct param_dma_output		dma_output_m_ds;/* master Down Scale output */
-	struct param_dma_output		dma_output_s_ds;/* slave Down Scale output */
-
-	struct param_dma_input		dma_input_disparity;
-	struct param_dma_output		dma_output_disparity;
+	struct param_dma_output		output_disparity;
+	struct param_dma_output		output_disparity_stat;
+	struct param_dma_output		dma_output_f;	/* fusion */
 
 	u32				input_dva[DCP_DMA_IN_MAX][4];
 	u32				output_dva[DCP_DMA_OUT_MAX][4];

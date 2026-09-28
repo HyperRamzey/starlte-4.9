@@ -26,8 +26,6 @@ static int fimc_is_hw_dcp_open(struct fimc_is_hw_ip *hw_ip, u32 instance,
 	if (test_bit(HW_OPEN, &hw_ip->state))
 		return 0;
 
-	*size = sizeof(struct fimc_is_hw_dcp);
-
 	frame_manager_probe(hw_ip->framemgr, FRAMEMGR_ID_HW | hw_ip->id, "HWDCP");
 	frame_manager_open(hw_ip->framemgr, FIMC_IS_MAX_HW_FRAME);
 
@@ -273,6 +271,7 @@ int fimc_is_hw_dcp_shot(struct fimc_is_hw_ip *hw_ip, struct fimc_is_frame *frame
 	struct dcp_param *param;
 	u32 lindex, hindex;
 	u32 i = 0;
+	u32 plane;
 
 	BUG_ON(!hw_ip);
 	BUG_ON(!frame);
@@ -316,17 +315,20 @@ int fimc_is_hw_dcp_shot(struct fimc_is_hw_ip *hw_ip, struct fimc_is_frame *frame
 	fimc_is_hw_dcp_update_param(param, param_set, lindex, hindex);
 
 	/* TODO: DMA settings */
-	for (i = 0; i < DCP_DMA_MAX; i++) {
-		param_set->input_dva[i] = 0;
-		param_set->output_dva[i] = 0;
-	}
+	memset(param_set->input_dva, 0, sizeof(param_set->input_dva));
+	memset(param_set->output_dva, 0, sizeof(param_set->output_dva));
 
 	if (param_set->dma_input_m.cmd != DMA_INPUT_COMMAND_DISABLE) {
-		param_set->input_dva[DCP_DMA_MASTER_C] = frame->dvaddr_buffer[DCP_DMA_MASTER_C];
-		if (!frame->dvaddr_buffer[DCP_DMA_MASTER_C]) {
-			mserr_hw("[F:%d]dvaddr_buffer[0] is zero", frame->instance, hw_ip,
-				frame->fcount);
-			BUG_ON(1);
+		plane = param_set->dma_input_m.plane;
+
+		for (i = 0; i < plane; i++) {
+			param_set->input_dva[DCP_DMA_IN_GDC_MASTER][i] =
+				frame->dvaddr_buffer[i];
+			if (!frame->dvaddr_buffer[i]) {
+				mserr_hw("[F:%d]dvaddr_buffer[%d] is zero",
+					frame->instance, hw_ip, frame->fcount, i);
+				BUG_ON(1);
+			}
 		}
 	}
 
@@ -484,8 +486,8 @@ int fimc_is_hw_dcp_frame_ndone(struct fimc_is_hw_ip *hw_ip, struct fimc_is_frame
 	return ret;
 }
 
-int fimc_is_hw_dcp_load_setfile(struct fimc_is_hw_ip *hw_ip, u32 index,
-	u32 instance, ulong hw_map)
+int fimc_is_hw_dcp_load_setfile(struct fimc_is_hw_ip *hw_ip, u32 instance,
+	ulong hw_map)
 {
 	int ret = 0;
 
@@ -503,6 +505,8 @@ int fimc_is_hw_dcp_load_setfile(struct fimc_is_hw_ip *hw_ip, u32 index,
 int fimc_is_hw_dcp_apply_setfile(struct fimc_is_hw_ip *hw_ip, u32 scenario,
 	u32 instance, ulong hw_map)
 {
+	struct fimc_is_hw_ip_setfile *setfile;
+	enum exynos_sensor_position sensor_position;
 	u32 setfile_index = 0;
 	int ret = 0;
 
@@ -514,11 +518,14 @@ int fimc_is_hw_dcp_apply_setfile(struct fimc_is_hw_ip *hw_ip, u32 scenario,
 		return -ESRCH;
 	}
 
-	if (hw_ip->setfile.using_count == 0)
+	sensor_position = hw_ip->hardware->sensor_position[instance];
+	setfile = &hw_ip->setfile[sensor_position];
+
+	if (setfile->using_count == 0)
 		return 0;
 
-	setfile_index = hw_ip->setfile.index[scenario];
-	if (setfile_index >= hw_ip->setfile.using_count) {
+	setfile_index = setfile->index[scenario];
+	if (setfile_index >= setfile->using_count) {
 		mserr_hw("setfile index is out-of-range, [%d:%d]",
 				instance, hw_ip, scenario, setfile_index);
 		return -EINVAL;
@@ -535,12 +542,17 @@ int fimc_is_hw_dcp_apply_setfile(struct fimc_is_hw_ip *hw_ip, u32 scenario,
 int fimc_is_hw_dcp_delete_setfile(struct fimc_is_hw_ip *hw_ip, u32 instance,
 	ulong hw_map)
 {
+	struct fimc_is_hw_ip_setfile *setfile;
+	enum exynos_sensor_position sensor_position;
 	int ret = 0;
 
 	if (!test_bit_variables(hw_ip->id, &hw_map))
 		return 0;
 
-	if (hw_ip->setfile.using_count == 0)
+	sensor_position = hw_ip->hardware->sensor_position[instance];
+	setfile = &hw_ip->setfile[sensor_position];
+
+	if (setfile->using_count == 0)
 		return 0;
 
 	clear_bit(HW_TUNESET, &hw_ip->state);
