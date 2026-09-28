@@ -33,23 +33,11 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
-#include <linux/kmsg_dump.h>
 
 static int p49_beacon_delay_ms = 2000;
 module_param_named(delay_ms, p49_beacon_delay_ms, int, 0444);
 MODULE_PARM_DESC(delay_ms,
 	"ms to wait at core_initcall before panicking; 0 disables");
-
-/*
- * Pretend to be the panic dumper so that this record wins over anything the
- * console dumper might want to write. With CONFIG_PSTORE_CONSOLE off there is
- * no console dumper, but registering with a real max_reason means the record
- * cannot be skipped for being "not a panic".
- */
-static void p49_beacon_dump(struct kmsg_dumper *d, enum kmsg_dump_reason r)
-{
-	pr_emerg("p49-bootbeacon: dumper invoked, reason=%d\n", r);
-}
 
 static int __init p49_beacon_init(void)
 {
