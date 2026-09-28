@@ -155,7 +155,7 @@ static int p49_write_scratch(const void *data, size_t len, sector_t start)
 static void p49_snapshot(int which, int level, int retries)
 {
 	struct p49_hdr h;
-	size_t total;
+	size_t log_len, total;
 	int tries;
 
 	log_len = p49_grab_log();
