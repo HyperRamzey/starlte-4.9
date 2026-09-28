@@ -13,13 +13,14 @@
  * exactly two places, panic() and the oops path. There is no
  * KMSG_DUMP_RESTART call site, so a clean restart writes nothing either.
  *
- * It is registered at core_initcall, deliberately as EARLY as possible:
- * pstore's ramoops_init() is a postcore_initcall, which runs before
- * core_initcall, so pstore is guaranteed to be live by the time this fires.
- * A previous version used late_initcall and produced no record, which is
- * consistent with the hang happening before late_initcall -- at that point the
- * beacon would never even run, so no panic and no record. Moving it early
- * brackets the hang from the other side.
+ * It is registered at device_initcall (level 6 in this tree). That is not a
+ * guess: core_initcall is level 1 here and postcore_initcall is level 2, so a
+ * core_initcall beacon would have panicked BEFORE ramoops_init() ran and could
+ * never have produced a record. An earlier attempt used late_initcall (level 7)
+ * and produced no record either, which is consistent with the hang happening
+ * before level 7 -- the beacon would never run, so no panic, so no record.
+ * Level 6 is the earliest level that is both after pstore and plausibly before
+ * the hang, so it brackets the failure from the other side.
  *
  * A plain mdelay() is used rather than a workqueue, because at core_initcall
  * workqueues are not reliably up yet and an ordering mistake here would look
@@ -47,7 +48,7 @@ static int __init p49_beacon_init(void)
 		return 0;
 	}
 
-	pr_emerg("p49-bootbeacon: REACHED core_initcall, kernel is alive this "
+	pr_emerg("p49-bootbeacon: REACHED device_initcall, kernel is alive this "
 		 "far. panicking in %d ms to capture the log in pstore\n",
 		 p49_beacon_delay_ms);
 
@@ -56,7 +57,7 @@ static int __init p49_beacon_init(void)
 
 	pr_emerg("p49-bootbeacon: about to panic, this line is the last thing "
 		 "written to the pstore record\n");
-	panic("p49-bootbeacon: deliberate panic at core_initcall to capture the boot log");
+	panic("p49-bootbeacon: deliberate panic at device_initcall to capture the boot log");
 
 	/*
 	 * panic() is not declared noreturn in this tree, so the compiler still
@@ -65,4 +66,4 @@ static int __init p49_beacon_init(void)
 	 */
 	return 0;
 }
-core_initcall(p49_beacon_init);
+device_initcall(p49_beacon_init);
