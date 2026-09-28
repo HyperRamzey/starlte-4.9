@@ -2224,10 +2224,30 @@ CONFIG_SERIAL_EARLYCON=y
 # CONFIG_SERIAL_AMBA_PL011 is not set
 # CONFIG_SERIAL_EARLYCON_ARM_SEMIHOST is not set
 CONFIG_SERIAL_SAMSUNG=y
-CONFIG_SERIAL_SAMSUNG_UARTS_4=y
-CONFIG_SERIAL_SAMSUNG_UARTS=4
+# GROUND TRUTH: stock_kernel.config and the live crDroid 4.4 running.config both
+#   set CONFIG_SERIAL_SAMSUNG_UARTS=16. The SoC has six samsung,exynos-uart
+#   nodes (0x13800000, 0x13810000, 0x13820000, 0x13920000, 0x13940000,
+#   0x13980000) and s3c24xx_serial_ports[] is sized by this symbol, so 4 leaves
+#   the last two DT nodes unbacked -- and, more urgently, the console UART is
+#   never probed, which is why the kernel produced no output at all on its first
+#   and only boot.
+#   UARTS_4 is a promptless bool with "default y if !(CPU_S3C2410 || ...)", so
+#   kconfig re-derives it as y and drags UARTS back to 4 through
+#   "default 4 if SERIAL_SAMSUNG_UARTS_4". Commit 16ec1587feec gave it a prompt,
+#   which is what makes an explicit "is not set" stick. Verified empirically:
+#   with the prompt, defconfig, olddefconfig and reordering all honour the
+#   value; without it, none of them did.
+# CONFIG_SERIAL_SAMSUNG_UARTS_4 is not set
+CONFIG_SERIAL_SAMSUNG_UARTS=16
 CONFIG_SERIAL_SAMSUNG_CONSOLE=y
-CONFIG_S3C_LOWLEVEL_UART_PORT=0
+# GROUND TRUTH: stock and live 4.4 both set CONFIG_S3C_LOWLEVEL_UART_PORT=2;
+#   this defconfig had 0. s3c24xx_serial_console_init() (samsung.c:1392) builds
+#   "console-pclk%d"/"console-sclk%d" from this value, and
+#   drivers/clk/samsung/clk-exynos7885.c registers console-pclk0/1/2 -- so 0
+#   enabled UART0's debug clocks instead of UART2's, and UART0 is
+#   status="disabled" in the device tree. The value is also the port exempted
+#   from the SICD and LPA low-power paths at samsung.c:1797, 1829, 1987, 2020.
+CONFIG_S3C_LOWLEVEL_UART_PORT=2
 CONFIG_SERIAL_SAMSUNG_HWACG=y
 # CONFIG_SERIAL_MAX3100 is not set
 # CONFIG_SERIAL_MAX310X is not set
