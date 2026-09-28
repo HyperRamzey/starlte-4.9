@@ -65,7 +65,7 @@ static long __ionfd2phys_ioctl(int fd, size_t nr_pfns, sk_pfn_t *pfns)
 	size_t pfn;
 	size_t size = 0;
 
-	handle = ion_import_dma_buf(client, fd);
+	handle = ion_import_dma_buf_fd(client, fd);
 	if (IS_ERR_OR_NULL(handle)) {
 		pr_err("Failed to import an ION FD\n");
 		ret = handle ? PTR_ERR(handle) : -EINVAL;

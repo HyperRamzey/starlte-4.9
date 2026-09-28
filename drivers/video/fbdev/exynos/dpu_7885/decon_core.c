@@ -50,9 +50,25 @@
 #include "dpp.h"
 
 #ifdef CONFIG_SAMSUNG_TUI
-/* PORT-NOTE(dpu_7885): "stui_inf.h" (4.4 CONFIG_SAMSUNG_TUI, -Idrivers/misc/tui)
- * is 4.4-only and has no 4.9 counterpart; drivers/misc is owned by another
- * port agent. Dropped. */
+/* PORT-NOTE(dpu_7885): 4.4 reached this symbol as #include "stui_inf.h",
+ * via ccflags-$(CONFIG_SAMSUNG_TUI) += -Idrivers/misc/tui. Deliberately not
+ * done here: dpu_7885 has no such -I, and drivers/misc/tui/ belongs to another
+ * port agent, so an include would couple this file to a directory that is
+ * expected to keep moving. Declare the one symbol we actually use instead,
+ * copied verbatim from its definition -- drivers/misc/tui/stui_inf.c:130 (the
+ * USE_TEE_CLIENT_API build) and :189 (the #else stub) are both
+ * "int stui_cancel_session(void)", matching drivers/misc/tui/stui_inf.h:31.
+ * This is the same plain-extern cross-directory pattern this tree already
+ * uses for a TUI symbol at drivers/input/.../ist40xx.c:60.
+ *
+ * There is deliberately no EXPORT_SYMBOL(stui_cancel_session) and none is
+ * required: SAMSUNG_TUI (drivers/misc/tui/Kconfig) and EXYNOS_DECON_7885 are
+ * both bool, so stui_inf.o and decon.o are both obj-y and the built-in link
+ * resolves it directly. The int return is discarded at the single call site
+ * in decon_disable(), which is legal -- the definition carries no
+ * __attribute__((warn_unused_result)).
+ */
+int stui_cancel_session(void);
 #endif
 
 /*#define BRINGUP_DECON_BIST*/

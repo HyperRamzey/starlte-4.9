@@ -127,6 +127,36 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 void ion_free(struct ion_client *client, struct ion_handle *handle);
 
 /**
+ * ion_phys() - get the physical address of a handle's memory
+ * @client:	the client
+ * @handle:	the handle
+ * @addr:	a pointer to put the address in
+ * @len:	a pointer to put the length in
+ *
+ * Restore of the API that the 4.9-era ION rewrite dropped.  4.4 reached the
+ * address through a per-heap ->phys callback declared in struct ion_heap_ops;
+ * this tree's struct ion_heap_ops (drivers/staging/android/ion/ion_priv.h) is
+ * allocate/free/map_kernel/unmap_kernel/map_user/shrink with no phys member,
+ * and nothing else in ion.h or ion_priv.h can name a buffer's physical
+ * address.  The walk is therefore done here, in ION, over the buffer's
+ * sg_table.
+ *
+ * 4.4's contract is preserved verbatim: "It't output is only correct if a
+ * heap returns physically contiguous memory -- in other cases this api should
+ * not be implemented".  So the sg entries must form one physically contiguous
+ * run; anything else returns -ENODEV rather than a plausible-looking wrong
+ * address.  Callers that cannot require contiguity should walk the sg_table
+ * themselves.
+ *
+ * Returns -EINVAL if the handle is invalid, -ENODEV if the buffer has no
+ * sg_table or is not physically contiguous.  This has no implications on the
+ * reference counting of the handle -- the returned value may not be valid if
+ * the caller is not holding a reference.
+ */
+int ion_phys(struct ion_client *client, struct ion_handle *handle,
+	     ion_phys_addr_t *addr, size_t *len);
+
+/**
  * ion_map_kernel - create mapping for the given handle
  * @client:	the client
  * @handle:	handle to map

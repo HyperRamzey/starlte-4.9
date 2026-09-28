@@ -905,6 +905,85 @@ void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle)
 }
 EXPORT_SYMBOL(ion_unmap_kernel);
 
+/*
+ * PORT-NOTE(ion): restore ion_phys(), removed by the 4.9-era ION rewrite.
+ *
+ * 4.4 implemented this as a thin dispatcher to a per-heap ->phys callback
+ * (4.4 drivers/staging/android/ion/ion.c:885).  That half of the interface
+ * does not exist in this tree, so the address is recovered from the buffer's
+ * sg_table instead.  The heaps that used to answer ->phys on this platform --
+ * the exynos hpa and video-stream heaps -- install buffer->sg_table at
+ * allocation time (ion/exynos/ion_hpa_heap.c, ion_system_heap.c) and the table
+ * holds the pages in ascending physical order, so the walk below reproduces
+ * what ->phys used to return for them.
+ *
+ * 4.4 documented that this API's output "is only correct if a heap returns
+ * physically contiguous memory -- in other cases this api should not be
+ * implemented", so contiguity is demanded rather than assumed.  Note that
+ * sg_phys(), not sg_dma_addr(), is the right accessor: these tables are built
+ * with sg_set_page() and never have dma_addr populated, so sg_dma_addr() would
+ * read back 0.
+ */
+int ion_phys(struct ion_client *client, struct ion_handle *handle,
+	     ion_phys_addr_t *addr, size_t *len)
+{
+	struct ion_buffer *buffer;
+	struct sg_table *table;
+	struct scatterlist *sg;
+	ion_phys_addr_t base, cursor;
+	size_t total = 0;
+	int i;
+
+	if (!handle || !addr || !len)
+		return -EINVAL;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to ion_phys.\n", __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	buffer = handle->buffer;
+	if (!buffer) {
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	mutex_lock(&buffer->lock);
+	mutex_unlock(&client->lock);
+
+	table = buffer->sg_table;
+	if (!table || !table->nents) {
+		pr_err("%s: no sg_table for buffer (name=%s, type=%d).\n",
+		       __func__, buffer->heap->name, buffer->heap->type);
+		mutex_unlock(&buffer->lock);
+		return -ENODEV;
+	}
+
+	base = sg_phys(table->sgl);
+	cursor = base;
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		if (sg_phys(sg) != cursor) {
+			pr_err("%s: buffer is not physically contiguous (name=%s, type=%d).\n",
+			       __func__, buffer->heap->name,
+			       buffer->heap->type);
+			mutex_unlock(&buffer->lock);
+			return -ENODEV;
+		}
+		cursor += sg_dma_len(sg);
+		total += sg_dma_len(sg);
+	}
+
+	mutex_unlock(&buffer->lock);
+
+	*addr = base;
+	*len = total;
+
+	return 0;
+}
+EXPORT_SYMBOL(ion_phys);
+
 static struct mutex debugfs_mutex;
 static struct rb_root *ion_root_client;
 static int is_client_alive(struct ion_client *client)
