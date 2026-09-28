@@ -50,6 +50,98 @@
 
 #if defined(CONFIG_SOC_EXYNOS7885)
 #include <linux/mcu_ipc.h>
+#include <linux/bug.h>
+#include <linux/spinlock.h>
+
+/*
+ * EXYNOS7885 PMU shared-register toggle.
+ *
+ * On 4.4 this was exynos_pmu_shared_reg_enable()/_disable(), owned by
+ * drivers/misc/mcu_ipc/mcu_ipc.c and exported to SCSC, gnss_if, modem_v1
+ * and the s610 radio.  The 4.9 mcu_ipc driver dropped that block together
+ * with its <soc/samsung/exynos-pmu.h> include and its CP_STAT /
+ * EXT_REGULATOR_SHARED_* register defines, so there is no 4.9 equivalent to
+ * call.  Every primitive the helper actually used is still exported by
+ * mcu_ipc.o, so re-create the toggle here - with its own usage
+ * accounting, because the 4.4 one was a file-static refcount inside
+ * mcu_ipc.c.  Dropping it would silently lose the power-management state
+ * handshake around WLAN/BT firmware download.
+ */
+#define SCSC_CP_STAT				0x38
+#define SCSC_EXT_REGULATOR_SHARED_STATUS	0x3644
+#define SCSC_EXT_REGULATOR_SHARED_OPTION	0x3648
+
+static DEFINE_SPINLOCK(scsc_shared_reg_lock);
+static int scsc_shared_reg_usage_cnt;
+
+static int scsc_shared_reg_get_cp_stat(void)
+{
+	u32 val;
+
+	exynos_pmu_read(SCSC_CP_STAT, &val);
+	return val;
+}
+
+static int scsc_shared_reg_get_status(void)
+{
+	u32 val;
+
+	exynos_pmu_read(SCSC_EXT_REGULATOR_SHARED_STATUS, &val);
+	return val;
+}
+
+/* Non-zero return means the caller must delay before touching the register. */
+static int scsc_pmu_shared_reg_enable(void)
+{
+	int need_delay = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&scsc_shared_reg_lock, flags);
+
+	if (scsc_shared_reg_usage_cnt == 0) {
+		mbox_update_value(MCU_CP, 2, 1, 0x1, 0x0);
+		exynos_pmu_update(SCSC_EXT_REGULATOR_SHARED_OPTION, 0x4, 0x4);
+		if (mbox_extract_value(MCU_CP, 3, 0xf, 0x1) == 0)
+			need_delay = 1;
+	}
+
+	scsc_shared_reg_usage_cnt++;
+
+	if (scsc_shared_reg_get_status() != 0x20001 ||
+	    scsc_shared_reg_get_cp_stat() != 0x10)
+		pr_info("%s) need_delay = %d, usage_cnt = %d, CP_WAKEUP = %d, CP_STAT = 0x%02x, EXT_REGULATOR_SHARED_STATUS: 0x%08x, CALLER = %pf\n",
+			__func__, need_delay, scsc_shared_reg_usage_cnt,
+			mbox_extract_value(MCU_CP, 2, 0x1, 0x0),
+			scsc_shared_reg_get_cp_stat(),
+			scsc_shared_reg_get_status(),
+			__builtin_return_address(0));
+
+	spin_unlock_irqrestore(&scsc_shared_reg_lock, flags);
+	return need_delay;
+}
+
+static void scsc_pmu_shared_reg_disable(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&scsc_shared_reg_lock, flags);
+
+	if (scsc_shared_reg_usage_cnt == 1) {
+		exynos_pmu_update(SCSC_EXT_REGULATOR_SHARED_OPTION, 0x4, 0x0);
+		mbox_update_value(MCU_CP, 2, 0, 0x1, 0x0);
+	}
+
+	scsc_shared_reg_usage_cnt--;
+
+	WARN(scsc_shared_reg_usage_cnt < 0,
+	     "%s) usage_cnt = %d(%pf), CP_STAT = 0x%02x, EXT_REGULATOR_SHARED_STATUS: 0x%08x, CALLER = %pf\n",
+	     __func__, scsc_shared_reg_usage_cnt, __builtin_return_address(0),
+	     scsc_shared_reg_get_cp_stat(),
+	     scsc_shared_reg_get_status(),
+	     __builtin_return_address(0));
+
+	spin_unlock_irqrestore(&scsc_shared_reg_lock, flags);
+}
 #endif
 
 #if defined(CONFIG_SOC_EXYNOS7872) || defined(CONFIG_SOC_EXYNOS7885)
@@ -279,7 +371,7 @@ static int platform_mif_register_irq(struct platform_mif *platform)
 
 	err = devm_request_irq(platform->dev, platform->wlbt_irq[PLATFORM_MIF_MBOX].irq_num, platform_mif_isr,
 			       platform->wlbt_irq[PLATFORM_MIF_MBOX].flags, DRV_NAME, platform);
-	if (IS_ERR_VALUE(err)) {
+	if (IS_ERR_VALUE((unsigned long)err)) {
 		SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev,
 			"Failed to register MBOX handler: %d. Aborting.\n", err);
 		err = -ENODEV;
@@ -292,7 +384,7 @@ static int platform_mif_register_irq(struct platform_mif *platform)
 
 	err = devm_request_irq(platform->dev, platform->wlbt_irq[PLATFORM_MIF_WDOG].irq_num, platform_wdog_isr,
 			       platform->wlbt_irq[PLATFORM_MIF_WDOG].flags, DRV_NAME, platform);
-	if (IS_ERR_VALUE(err)) {
+	if (IS_ERR_VALUE((unsigned long)err)) {
 		SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev,
 			"Failed to register WDOG handler: %d. Aborting.\n", err);
 		err = -ENODEV;
@@ -306,7 +398,7 @@ static int platform_mif_register_irq(struct platform_mif *platform)
 
 	err = devm_request_irq(platform->dev, platform->wlbt_irq[PLATFORM_MIF_ALIVE].irq_num, platform_alive_isr,
 			       platform->wlbt_irq[PLATFORM_MIF_ALIVE].flags, DRV_NAME, platform);
-	if (IS_ERR_VALUE(err)) {
+	if (IS_ERR_VALUE((unsigned long)err)) {
 		SCSC_TAG_ERR_DEV(PLAT_MIF, platform->dev,
 			"Failed to register ALIVE handler: %d. Aborting.\n", err);
 		err = -ENODEV;
@@ -412,7 +504,7 @@ static int platform_mif_pmu_reset_release(struct scsc_mif_abs *interface)
 	int                 ret = 0;
 
 #if defined(CONFIG_SOC_EXYNOS7885)
-	exynos_pmu_shared_reg_enable();
+	scsc_pmu_shared_reg_enable();
 #endif
 
 	ret = platform_mif_power(interface, true);
@@ -427,7 +519,7 @@ static int platform_mif_pmu_reset_release(struct scsc_mif_abs *interface)
 
 exit:
 #if defined(CONFIG_SOC_EXYNOS7885)
-	exynos_pmu_shared_reg_disable();
+	scsc_pmu_shared_reg_disable();
 #endif
 	return ret;
 }
