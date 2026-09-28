@@ -120,17 +120,31 @@ static size_t p49_grab_log(void)
 /*
  * Write one buffer to the head of the scratch partition.
  * Returns 0 on success, negative errno otherwise.
+ *
+ * This tree's block API is not the mainline one, and getting it wrong is easy:
+ *   - name_to_dev_t(name) takes ONE argument and RETURNS dev_t, 0 on failure.
+ *     (Not the two-argument out-parameter form of newer kernels.)
+ *   - blkdev_get_by_dev(dev, fmode_t mode, void *holder) and
+ *     blkdev_put(bdev, mode) both live in include/linux/fs.h, and blkdev_put
+ *     takes the mode back.
+ *   - bdev_write_page() is the clean single-page writer; hand-rolling a bio here
+ *     would mean dealing with bi_io_vec/bi_vcnt and the two-argument bio_put(),
+ *     for no benefit.
+ * drivers/mtd/devices/block2mtd.c is the in-tree precedent for the
+ * name_to_dev_t + blkdev_get_by_dev sequence.
  */
 static int p49_write_scratch(const void *data, size_t len)
 {
+	const char *ptr = data;
+	sector_t sector = 0;
 	struct block_device *bdev;
-	struct bio *bio;
-	struct bio_vec bv;
+	size_t remaining = len;
 	dev_t devt;
 	int ret;
 
-	if (name_to_dev_t(P49_SCRATCH_NAME, &devt)) {
-		pr_emerg("p49-bootbeacon: name_to_dev_t(%s) failed\n",
+	devt = name_to_dev_t(P49_SCRATCH_NAME);
+	if (!devt) {
+		pr_emerg("p49-bootbeacon: name_to_dev_t(%s) -> 0, no such device\n",
 			 P49_SCRATCH_NAME);
 		return -ENODEV;
 	}
@@ -142,40 +156,29 @@ static int p49_write_scratch(const void *data, size_t len)
 		return PTR_ERR(bdev);
 	}
 
-	bv.bv_page = virt_to_page((void *)data);
-	bv.bv_len = len;
-	bv.bv_offset = offset_in_page((unsigned long)data);
+	while (remaining) {
+		struct page *pg = virt_to_page(ptr);
+		unsigned int off = offset_in_page(ptr);
+		unsigned int chunk = min_t(size_t, remaining, PAGE_SIZE - off);
 
-	bio = bio_alloc(GFP_KERNEL, 1);
-	if (!bio) {
-		blkdev_put(bdev);
-		return -ENOMEM;
+		ret = bdev_write_page(bdev, sector, pg, off, chunk);
+		if (ret) {
+			pr_emerg("p49-bootbeacon: bdev_write_page err %d "
+				 "at sector %llu\n", ret, (unsigned long long)sector);
+			blkdev_put(bdev, FMODE_WRITE);
+			return ret;
+		}
+
+		ptr += chunk;
+		remaining -= chunk;
+		sector += (chunk + 511) / 512;
 	}
 
-	bio->bi_bdev = bdev;
-	bio->bi_bvec = &bv;
-	bio->bi_iter.bi_sector = 0;		/* sector 0 of p28 */
-	bio->bi_iter.bi_size = len;
-	bio->bi_opf = REQ_OP_WRITE | REQ_SYNC;
-
-	ret = submit_bio_wait(bio);
-	if (ret)
-		pr_emerg("p49-bootbeacon: submit_bio_wait err %d\n", ret);
-
-	bio_put(bio);
-	blkdev_put(bdev);
-	return ret;
-}
-
-/* Header + log, written as one buffer so a reader can never see a torn pair. */
-static int p49_dump(struct kmsg_dumper *d, enum kmsg_dump_reason reason)
-{
-	/* unused, but referenced so -Werror does not object to the struct */
-	(void)d;
-	(void)reason;
+	blkdev_put(bdev, FMODE_WRITE);
 	return 0;
 }
 
+/* Header + log, written as one buffer so a reader can never see a torn pair. */
 static void p49_emit(const char *hdrline, size_t log_len)
 {
 	struct p49_hdr h;
@@ -234,7 +237,6 @@ static int __init p49_beacon_init(void)
 		p49_buf[0] = '\n';
 	}
 
-	(void)p49_dump;	/* keep the helper referenced */
 	p49_emit("capturing boot log", log_len);
 
 	/*
