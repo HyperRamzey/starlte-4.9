@@ -1,7 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0
-dtb-$(CONFIG_CAMERA_STAR2) += exynos/exynos9810-star2lte_eur_open_26.dtb
-
-dtb-$(CONFIG_CAMERA_STAR) += exynos/exynos9810-starlte_eur_open_26.dtb
 
 # EXYNOS7885 / EXYNOS7904 (Galaxy A30s, SM-A307) -- device tree skeleton ported
 # verbatim from the live 4.4 A30s tree. The base SoC DTB is unconditional, exactly
@@ -15,6 +12,16 @@ dtbo-$(CONFIG_MACH_EXYNOS7885_A30s_OPEN) := \
 	exynos/dtbo/exynos7904-a30s_eur_open_01.dtbo \
 	exynos/dtbo/exynos7904-a30s_eur_open_02.dtbo \
 	exynos/dtbo/exynos7904-a30s_eur_open_03.dtbo
+
+# Fold the gated list above into `dtbo-y`, which is the variable this build
+# system actually consumes: both `DTB_LIST := $(dtb-y) $(dtbo-y)` here and
+# arch/arm64/boot/Makefile:27 read only `dtbo-y`. Assigning to
+# `dtbo-$(CONFIG_...)` alone populates `dtbo-CONFIG_MACH_EXYNOS7885_A30s_OPEN`
+# (or bare `dtbo-` when the symbol is not set), so without this line DTB_LIST
+# would contain only the base .dtb and all four .dtbo would be silently dropped.
+# If the machine symbol is not set, the list above lands in `dtbo-` and this
+# expands to nothing, which is the intended gating behaviour.
+dtbo-y += $(dtbo-CONFIG_MACH_EXYNOS7885_A30s_OPEN)
 
 targets += dtbs
 DTB_LIST  := $(dtb-y) $(dtbo-y)
