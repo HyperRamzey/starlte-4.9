@@ -6033,3 +6033,35 @@ CONFIG_SEC_NFC_IF_I2C=y
 CONFIG_SEC_SPD_ADC=y
 CONFIG_ION_FD2PHYS=y
 CONFIG_CAMERA_ACT_DW9808_OBJ=y
+
+# --- Imagis IST4050 touchscreen + its TUI/TZDEV dependency chain ---
+# Ground truth: stock 4.4 and the live crDroid 4.4 config both set
+# CONFIG_TOUCHSCREEN_IST4050=y and CONFIG_SAMSUNG_TUI=y. ist40xx.c includes
+# <linux/t-base-tui.h> and "stui_inf.h" and calls stui_get_mode()/
+# tui_force_close(), so TUI is a hard dependency, and drivers/misc/tui
+# compiles against tzdev. Chain: IST4050 -> SAMSUNG_TUI -> TZDEV.
+# Live device: i2c 11-0050 = ist40xx-ts, compatible "imagis,ist40xx-ts"
+# (exynos7904-a30s_common.dtsi:1239). Produces sec_touchscreen + sec_touchproximity.
+CONFIG_TZDEV=y
+CONFIG_TZDEV_USE_ARM_CALLING_CONVENTION=y
+CONFIG_TZDEV_IWI_EVENT=446
+CONFIG_TZDEV_IWI_PANIC=447
+CONFIG_TZDEV_SK_MULTICORE=y
+CONFIG_TZDEV_KTHREADS_SMPBOOT=y
+CONFIG_TZDEV_PAGE_MIGRATION=y
+CONFIG_TZDEV_BOOST=y
+# CONFIG_TZDEV_DEPLOY_TZAR is not set
+#   Deliberate for the first boot. DEPLOY_TZAR=y embeds startup.tazar via an
+#   assembler .incbin in tz_deploy_tzar.c, and a missing blob fails the build
+#   hard rather than degrading. The blob IS available in the 4.4 donor
+#   (drivers/misc/tzdev/3.0/startup.tazar, 5416310 B, git blob
+#   602d27d53ec7e2e75844304b80df46595a0606f6) and is the next step, but
+#   tzdev_smc_check_version() hands LINUX_VERSION_CODE to the Trustonic SK, and
+#   that now reads 4.9.219 instead of 4.4.302. Shipping the secure world on
+#   the very first boot is not a risk worth taking before the kernel is
+#   otherwise known good. With it off, tzdev builds and normal-world touch
+#   works; trusted-UI sessions correctly fail with -ENODEV.
+CONFIG_TEEGRIS_VERSION=3
+CONFIG_SAMSUNG_TUI=y
+# CONFIG_SAMSUNG_TUI_TEST is not set
+CONFIG_TOUCHSCREEN_IST4050=y
