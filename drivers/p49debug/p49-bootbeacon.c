@@ -184,41 +184,42 @@ static void p49_try_emmc(void)
 }
 
 /*
- * Save the log to eMMC at the last possible moment, then panic.
+ * Level bisection: fire at fs_initcall (level 5) instead of late_initcall (7).
  *
- * Why late_initcall and not arch_initcall: the measured initcall table for this
- * kernel is 994 entries long. arch_initcall lands at entry 122, but
- * mmc_blk_init() is entry 602 -- there is no eMMC block device at entry 122, so
- * every snapshot taken there had nowhere to go. late_initcall is the final level
- * and runs after mmc_blk_init, so /dev/mmcblk0p28 and /dev/mmcblk0p30 both exist
- * by then.
+ * Measured facts so far, from the linked initcall table (994 entries):
+ *   entry 122  p49_panic_now3      arch_initcall_sync  -> PANICKED, self-restarted
+ *   entry 123  exynos_acpm_init3s  arch_initcall_sync  -> never ran
+ *   entry 134  (just after mmc/)   device_initcall     -> never ran
+ *   entry 956  (just before dsim)  late_initcall       -> never ran
  *
- * Two partitions are written because a single point of failure is what has cost
- * the most time here: p28 turns out to hold a real ext4 filesystem, which is
- * exactly the sort of thing that can refuse a raw write, so mmcblk0p30 (cp_debug)
- * is a fallback.
+ * So the kernel dies between entry 122 and 134 -- a window of 12 initcalls, all of
+ * them arch_initcall_sync or subsys_initcall. Everything after that, including
+ * all 600-odd device_initcall drivers, was never even attempted.
  *
- * Then panic anyway, deliberately. That is the second channel: pstore, which
- * lives in DRAM. It has never produced a record, and the strong hypothesis is
- * that the human hard reset clears DRAM before recovery can read it. Panicking
- * here gives CONFIG_PANIC_TIMEOUT=5 a chance to warm-restart without a human, so
- * DRAM survives and pstore is actually tested rather than written off on a
- * hypothesis.
+ * Rather than keep guessing which of the 12 it is, this moves the probe to level 5
+ * and writes the log to eMMC from there:
  *
- * Whichever channel produces a record ends the guessing.
+ *   - if the log appears, the wedge is between level 5 and level 7, and the log
+ *     says exactly what ran;
+ *   - if it does not, the wedge is before level 5, which collapses 600 device
+ *     drivers out of consideration in a single build.
+ *
+ * Either outcome is worth a lot more than another guess. mmc_blk_init is level 6,
+ * so the eMMC block device does not exist at level 5 either -- the pstore panic is
+ * the primary channel here and the eMMC write is opportunistic.
  */
-static int __init p49_save_and_panic(void)
+static int __init p49_probe_level5(void)
 {
-	pr_emerg("p49-bootbeacon: REACHED late_initcall -- P49LATE7REACHED -- "
+	pr_emerg("p49-bootbeacon: REACHED fs_initcall (level 5) -- P49FS5REACHED -- "
 		 "writing the boot log to eMMC, then panicking so pstore gets a "
 		 "chance too\n");
 
 	p49_try_emmc();
 
-	panic("p49-bootbeacon: P49LATE7REACHED deliberate panic at late_initcall");
+	panic("p49-bootbeacon: P49FS5REACHED deliberate panic at fs_initcall");
 	return 0;
 }
-late_initcall(p49_save_and_panic);
+fs_initcall(p49_probe_level5);
 
 
 
