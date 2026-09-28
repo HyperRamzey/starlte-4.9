@@ -69,5 +69,12 @@ static int __init p49_beacon_init(void)
 	pr_emerg("p49-bootbeacon: about to panic, this line is the last thing "
 		 "written to the pstore record\n");
 	panic("p49-bootbeacon: deliberate panic at core_initcall to capture the boot log");
+
+	/*
+	 * panic() is not declared noreturn in this tree, so the compiler still
+	 * requires a return on every path. Unreachable in practice, but the
+	 * build runs with -Werror, so it has to be here.
+	 */
+	return 0;
 }
 core_initcall(p49_beacon_init);
