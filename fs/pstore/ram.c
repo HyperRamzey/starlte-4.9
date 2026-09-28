@@ -741,44 +741,49 @@ static struct platform_driver ramoops_driver = {
 static void ramoops_register_dummy(void)
 {
 	/*
-	 * Samsung's exynos7885 device tree has no ramoops node at all -- only
-	 * /reserved-memory/exynos,sec_debug_magic. ramoops_probe() therefore
-	 * never runs, pstore_register() is never called, and pstore silently
-	 * writes NOTHING. With PSTORE_CONSOLE off there is no pmsg record either,
-	 * so a panic leaves no trace at all and a hang is completely invisible.
+	 * There is no ramoops DT node on this board -- not in the stock system DT
+	 * and not in recovery's own recovery_dtbo. ramoops_probe() is platform-device
+	 * driven, so it never runs, pstore_register() is never called, and pstore
+	 * writes NOTHING. ramoops_register_dummy() is the only other route, and it
+	 * was dead because mem_size is 0. That is why no panic has ever left a trace.
 	 *
-	 * The bootloader does pass sec_debug.base=0x100000@0x915a0000, but that
-	 * is sec_debug's own log region, not a pstore one, and nothing parses it
-	 * into mem_address/mem_size. So the dummy path below is the only route
-	 * pstore has, and it used to be dead because mem_size is 0.
+	 * The values below are NOT invented. They are read out of the running
+	 * stock recovery kernel on this exact device:
 	 *
-	 * Fall back to the DT's own reserved crash region. Verified on-device:
-	 * /proc/device-tree/reserved-memory/sec_debug_magic is 0x80000000,
-	 * 0x100000 (1 MiB). It is reserved, so memblock will not hand it out, and
-	 * sec_debug's *log* lives at 0x915a0000 (per sec_debug.base on the
-	 * cmdline), not here, so there is no collision with it.
+	 *   /sys/module/ramoops/parameters/mem_address = 2437939200 = 0x915A0000
+	 *   /sys/module/ramoops/parameters/mem_size    =     32768 = 0x8000
+	 *   /sys/module/ramoops/parameters/record_size =     16384 = 0x4000
+	 *   /sys/module/ramoops/parameters/pmsg_size   =     16384 = 0x4000
+	 *   /sys/module/ramoops/parameters/console_size =        0
 	 *
-	 * The only other claimant is kaslr_region=0x1000@0x80001000 from the
-	 * cmdline, 4 KiB inside this region. Pstore's record and console zones
-	 * are laid out from the base and this is a temporary diagnostic build;
-	 * if a future shipping kernel keeps this, offset the base past 0x80002000.
+	 * 0x915A0000 is where the bootloader points sec_debug.base
+	 * (sec_debug.base=0x100000@0x915a0000 on the cmdline), so our kernel reserves
+	 * that 1 MiB via sec_debug_base_setup() -> sec_debug_reserved() before any
+	 * initcall runs. Using it is therefore safe here, and it is the only address
+	 * that works: a record written anywhere else is invisible to recovery, because
+	 * recovery's pstore only ever looks at 0x915A0000. An earlier attempt pointed
+	 * this at /reserved-memory/sec_debug_magic (0x80000000, 1 MiB) which is a real
+	 * region but NOT the one recovery reads -- so even a successful panic would
+	 * have been invisible.
 	 *
-	 * An explicit ramoops.mem_address=/mem_size= on the cmdline still wins,
-	 * because we only fill these in when they are still zero.
+	 * console_size is 0 because CONFIG_PSTORE_CONSOLE is off: with pmsg filling the
+	 * same buffer there is never room for a dmesg record. pmsg_size matches stock
+	 * so the zone layout is byte-compatible, and the single 0x4000 dump zone is
+	 * where kmsg_dump(KMSG_DUMP_PANIC) lands.
+	 *
+	 * An explicit ramoops.mem_address=/mem_size= on the cmdline still wins, because
+	 * this only fills in values that are still zero.
 	 */
 	if (!mem_size) {
-		struct device_node *rmem;
-		struct resource res;
-
-		rmem = of_find_node_by_path("/reserved-memory/sec_debug_magic");
-		if (rmem && !of_address_to_resource(rmem, 0, &res)) {
-			mem_address = res.start;
-			mem_size = resource_size(&res);
-			pr_info("ramoops: no DT node, using "
-				"/reserved-memory/sec_debug_magic "
-				"0x%llx/0x%lx\n",
-				mem_address, mem_size);
-		}
+		mem_address = 0x915A0000;
+		mem_size = 0x8000;
+		record_size = 0x4000;
+		ramoops_console_size = 0;
+		ramoops_ftrace_size = 0;
+		ramoops_pmsg_size = 0x4000;
+		pr_info("ramoops: no DT node, using stock recovery layout "
+			"0x%llx/0x%lx record=0x%lx pmsg=0x%lx\n",
+			mem_address, mem_size, record_size, ramoops_pmsg_size);
 	}
 
 	if (!mem_size)
