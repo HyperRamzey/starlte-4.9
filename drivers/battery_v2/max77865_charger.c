@@ -1086,7 +1086,7 @@ static int max77865_chg_set_property(struct power_supply *psy,
 		break;
 #if defined(CONFIG_AFC_CHARGER_MODE)
 	case POWER_SUPPLY_PROP_AFC_CHARGER_MODE:
-#if defined(CONFIG_MUIC_HV)
+#if defined(CONFIG_MUIC_HV) && defined(CONFIG_MUIC_HV_MAX77865)
 		max77865_hv_muic_charger_init();
 #endif
 		break;

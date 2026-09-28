@@ -2190,8 +2190,11 @@ static void set_rbin_alloc_policy(enum rbin_alloc_policy val)
 {
 	struct zone *zone;
 
-	if (val == RBIN_ALLOW)
+	if (val == RBIN_ALLOW) {
+#ifdef CONFIG_ION_RBIN_HEAP
 		wake_ion_rbin_heap_shrink();
+#endif /* CONFIG_ION_RBIN_HEAP */
+	}
 	for_each_populated_zone(zone) {
 		atomic_set(&zone->rbin_alloc, val);
 		if (val)

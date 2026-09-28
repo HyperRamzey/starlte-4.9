@@ -235,6 +235,7 @@ static int dw_mci_exynos_priv_init(struct dw_mci *host)
 
 static void dw_mci_ssclk_control(struct dw_mci *host, int enable)
 {
+#ifdef CONFIG_SOC_EXYNOS9810
 	if (host->pdata->quirks & DW_MCI_QUIRK_USE_SSC) {
 		u32 err;
 		if (enable && cal_pll_mmc_check() == false) {
@@ -255,6 +256,7 @@ static void dw_mci_ssclk_control(struct dw_mci *host, int enable)
 				dev_info(host->dev, "SSC set disable.\n");
 		}
 	}
+#endif /* CONFIG_SOC_EXYNOS9810 */
 }
 static void dw_mci_exynos_set_clksel_timing(struct dw_mci *host, u32 timing)
 {

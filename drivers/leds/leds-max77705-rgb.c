@@ -968,7 +968,9 @@ static int max77705_rgb_probe(struct platform_device *pdev)
 
 	pr_info("leds-max77705-rgb: %s\n", __func__);
 
+#if defined(CONFIG_EXYNOS_DECON_9810)
 	octa_color = get_lcd_info("window_color");
+#endif /* CONFIG_EXYNOS_DECON_9810 */
 #ifdef CONFIG_OF
 	pdata = max77705_rgb_parse_dt(dev);
 	if (unlikely(IS_ERR(pdata)))

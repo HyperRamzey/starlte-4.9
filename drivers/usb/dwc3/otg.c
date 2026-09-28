@@ -198,13 +198,18 @@ void dwc3_otg_ldo_control(struct otg_fsm *fsm, int on)
 	struct usb_otg	*otg = fsm->otg;
 	struct dwc3_otg	*dotg = container_of(otg, struct dwc3_otg, otg);
 	struct device	*dev = dotg->dwc->dev;
-	int i, ret1, ret2, ret3;
+#ifdef CONFIG_REGULATOR_S2MPS18
+	int i;
+#endif /* CONFIG_REGULATOR_S2MPS18 */
+	int ret1, ret2, ret3;
 
 	dev_info(dev, "Turn %s LDO\n", on ? "on" : "off");
 
 	if (on) {
+#ifdef CONFIG_REGULATOR_S2MPS18
 		for (i = 0; i < dotg->ldos; i++)
 			s2m_ldo_set_mode(dotg->ldo_num[i], 0x3);
+#endif /* CONFIG_REGULATOR_S2MPS18 */
 
 		if (dotg->ldo_manual_control == 1) {
 			ret1 = regulator_enable(dotg->ldo12);
@@ -217,8 +222,10 @@ void dwc3_otg_ldo_control(struct otg_fsm *fsm, int on)
 			}
 		}
 	} else {
+#ifdef CONFIG_REGULATOR_S2MPS18
 		for (i = 0; i < dotg->ldos; i++)
 			s2m_ldo_set_mode(dotg->ldo_num[i], 0x1);
+#endif /* CONFIG_REGULATOR_S2MPS18 */
 
 		if (dotg->ldo_manual_control == 1) {
 			ret1 = regulator_disable(dotg->ldo12);

@@ -20,24 +20,29 @@ static inline unsigned int linear_phycpu(unsigned int mpidr)
 
 void pmucal_powermode_hint(unsigned int mode)
 {
+#if defined(CONFIG_SOC_EXYNOS9810)
 	unsigned int mpidr = read_mpidr();
 	unsigned int phycpu = linear_phycpu(mpidr);
 
 	__raw_writel(mode, pmucal_cpuinform_list[phycpu].base_va
 			+ pmucal_cpuinform_list[phycpu].offset);
+#endif /* CONFIG_SOC_EXYNOS9810 */
 }
 
 void pmucal_powermode_hint_clear(void)
 {
+#if defined(CONFIG_SOC_EXYNOS9810)
 	unsigned int mpidr = read_mpidr();
 	unsigned int phycpu = linear_phycpu(mpidr);
 
 	__raw_writel(0, pmucal_cpuinform_list[phycpu].base_va
 			+ pmucal_cpuinform_list[phycpu].offset);
+#endif /* CONFIG_SOC_EXYNOS9810 */
 }
 
 int __init pmucal_cpuinform_init(void)
 {
+#if defined(CONFIG_SOC_EXYNOS9810)
 	int i, j;
 
 	for (i = 0; i < cpu_inform_list_size; i++) {
@@ -54,6 +59,7 @@ int __init pmucal_cpuinform_init(void)
 		}
 
 	}
+#endif /* CONFIG_SOC_EXYNOS9810 */
 
 	return 0;
 }

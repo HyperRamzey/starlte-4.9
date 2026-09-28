@@ -21,6 +21,7 @@ struct acpm_dvfs {
 #define MARGIN_REQ      2
 #define COLDTEMP_REQ    3
 #define POLICY_REQ      4
+#define SET_FLAG	6
 
 #ifdef CONFIG_ACPM_DVFS
 extern int exynos_acpm_set_rate(unsigned int id, unsigned long rate);

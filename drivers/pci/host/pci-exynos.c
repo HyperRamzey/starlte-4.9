@@ -2050,7 +2050,9 @@ static int __init exynos_pcie_probe(struct platform_device *pdev)
 	}
 
 	/* Mapping PHY functions */
+#ifdef CONFIG_SOC_EXYNOS9810
 	exynos_pcie_phy_init(pp);
+#endif /* CONFIG_SOC_EXYNOS9810 */
 
 	if (exynos_pcie->use_cache_coherency)
 		enable_cache_cohernecy(pp, 1);

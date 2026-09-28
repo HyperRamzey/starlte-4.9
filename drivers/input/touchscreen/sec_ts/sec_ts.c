@@ -1714,7 +1714,7 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 	int count = 0;
 	u32 ic_match_value;
 	int lcdtype = 0;
-#if defined(CONFIG_EXYNOS_DECON_FB)
+#if defined(CONFIG_EXYNOS_DECON_FB) && defined(CONFIG_EXYNOS_DECON_9810)
 	int connected;
 #endif
 	u32 px_zone[3] = { 0 };
@@ -1803,7 +1803,7 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 	}
 #endif
 
-#if defined(CONFIG_EXYNOS_DECON_FB)
+#if defined(CONFIG_EXYNOS_DECON_FB) && defined(CONFIG_EXYNOS_DECON_9810)
 	connected = get_lcd_info("connected");
 	if (connected < 0) {
 		input_err(true, dev, "%s: Failed to get lcd info\n", __func__);

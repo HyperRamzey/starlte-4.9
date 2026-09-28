@@ -315,7 +315,9 @@ static int max77865_haptic_probe(struct platform_device *pdev)
 	} else
 		pwm_config(drvdata->pwm, pdata->period >> 1, pdata->period);
 	max77865_haptic_init_reg(drvdata);
+#ifdef CONFIG_SEC_HAPTIC
 	sec_haptic_register(shdata);
+#endif /* CONFIG_SEC_HAPTIC */
 
 	return 0;
 
@@ -334,7 +336,9 @@ static int max77865_haptic_remove(struct platform_device *pdev)
 		= platform_get_drvdata(pdev);
 
 	max77865_motor_boost_control(drvdata, BOOST_OFF);
+#ifdef CONFIG_SEC_HAPTIC
 	sec_haptic_unregister(drvdata->shdata);
+#endif /* CONFIG_SEC_HAPTIC */
 	pwm_free(drvdata->pwm);
 	max77865_haptic_i2c(drvdata, false);
 	kfree(drvdata);

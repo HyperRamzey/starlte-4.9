@@ -151,7 +151,9 @@ char *sec_bat_charge_mode_str[] = {
 	"Buck-Off",
 };
 
+#if defined(CONFIG_SENSORS_SSP)
 extern int bootmode;
+#endif /* CONFIG_SENSORS_SSP */
 
 void sec_bat_set_misc_event(struct sec_battery_info *battery,
 	unsigned int misc_event_val, unsigned int misc_event_mask) {
@@ -355,7 +357,9 @@ static void sec_bat_get_charging_current_by_siop(struct sec_battery_info *batter
 	pr_info("%s: incurr(%d), chgcurr(%d)\n", __func__, *input_current, *charging_current);
 }
 
+#if defined(CONFIG_HV_MUIC_VOLTAGE_CTRL)
 extern int muic_afc_set_voltage(int vol);
+#endif /* CONFIG_HV_MUIC_VOLTAGE_CTRL */
 
 #if !defined(CONFIG_SEC_FACTORY)
 static int sec_bat_get_temp_by_temp_control_source(struct sec_battery_info *battery,
@@ -538,7 +542,9 @@ static bool sec_bat_change_vbus(struct sec_battery_info *battery, int *input_cur
 
 			battery->chg_limit = false;
 			battery->vbus_chg_by_siop = target_vbus;
+#if defined(CONFIG_HV_MUIC_VOLTAGE_CTRL)
 			muic_afc_set_voltage(target_vbus);
+#endif /* CONFIG_HV_MUIC_VOLTAGE_CTRL */
 
 			pr_info("%s: vbus set %dV by level(%d), Cable(%s, %s, %d, %d)\n",
 				__func__, target_vbus, battery->siop_level,
@@ -1993,7 +1999,9 @@ static bool sec_bat_temperature_check(
 				if (is_hv_afc_wire_type(battery->cable_type) && !battery->vbus_limit) {
 #if defined(CONFIG_MUIC_HV) || defined(CONFIG_SUPPORT_QC30) || defined(CONFIG_SUPPORT_HV_CTRL)
 					battery->vbus_chg_by_siop = SEC_INPUT_VOLTAGE_0V;
+#if defined(CONFIG_HV_MUIC_VOLTAGE_CTRL)
 					muic_afc_set_voltage(SEC_INPUT_VOLTAGE_0V);
+#endif /* CONFIG_HV_MUIC_VOLTAGE_CTRL */
 #endif
 					battery->vbus_limit = true;
 					pr_info("%s: Set AFC TA to 0V\n", __func__);
@@ -2512,7 +2520,9 @@ static void sec_bat_do_fullcharged(
 			/* vbus level : 9V --> 5V */
 			battery->vbus_chg_by_full = true;
 			battery->vbus_chg_by_siop = SEC_INPUT_VOLTAGE_5V;
+#if defined(CONFIG_HV_MUIC_VOLTAGE_CTRL)
 			muic_afc_set_voltage(SEC_INPUT_VOLTAGE_5V);
+#endif /* CONFIG_HV_MUIC_VOLTAGE_CTRL */
 			pr_info("%s: vbus is set 5V by 2nd full\n", __func__);
 		}
 
@@ -6200,11 +6210,13 @@ static int sec_battery_probe(struct platform_device *pdev)
 		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX, value);
 
 	/* make fg_reset true again for actual normal booting after recovery kernel is done */
+#if defined(CONFIG_SENSORS_SSP)
 	if (fg_reset && (bootmode == 2)) {
 		psy_do_property(battery->pdata->fuelgauge_name, set,
 			POWER_SUPPLY_PROP_ENERGY_NOW, value);
 		pr_info("%s: make fg_reset true again for actual normal booting\n", __func__);
 	}
+#endif /* CONFIG_SENSORS_SSP */
 
 	if ((battery->cable_type == SEC_BATTERY_CABLE_NONE) ||
 		(battery->cable_type == SEC_BATTERY_CABLE_PREPARE_TA)) {
