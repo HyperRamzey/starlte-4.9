@@ -524,4 +524,21 @@ struct dw_mci_sfr_ram_dump {
 	u32			fifo_tx_watermark;
 	u32			fifo_rx_watermark;
 };
+/*
+ * IDMAC descriptor OWN-bit-clear predicate.
+ *
+ * The shared header include/linux/mmc/dw_mmc.h defines IDMAC_OWN_CLR64 only
+ * inside the non-FMP variant of "struct idmac_desc_64addr", i.e. the #else
+ * branch of CONFIG_MMC_DW_EXYNOS_FMP.  dw_mci_prepare_desc32() in dw_mmc.c
+ * uses it unconditionally, so any build with CONFIG_MMC_DW_EXYNOS_FMP=y is
+ * missing it.  Mirror the canonical definition here so the predicate stays
+ * the same OWN-bit-clear handshake that dw_mci_prepare_desc64() spells
+ * inline as !(val & IDMAC_DES0_OWN): true once IDMAC has released des0 back
+ * to the CPU, which is what the poll below waits for.
+ */
+#ifndef IDMAC_OWN_CLR64
+#define IDMAC_OWN_CLR64(x) \
+	!((x) & cpu_to_le32(IDMAC_DES0_OWN))
+#endif
+
 #endif /* _DW_MMC_H_ */
