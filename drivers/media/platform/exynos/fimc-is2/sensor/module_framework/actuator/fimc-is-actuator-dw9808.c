@@ -738,8 +738,6 @@ int sensor_dw9808_actuator_probe(struct i2c_client *client,
 	device->subdev_actuator[place] = subdev_actuator;
 	device->actuator[place] = actuator;
 
-	core->client3 = client;
-
 	v4l2_i2c_subdev_init(subdev_actuator, client, &subdev_ops);
 	v4l2_set_subdevdata(subdev_actuator, actuator);
 	v4l2_set_subdev_hostdata(subdev_actuator, device);

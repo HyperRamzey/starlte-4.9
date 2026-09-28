@@ -2197,7 +2197,6 @@ static struct fimc_is_cis_ops cis_ops_imx576 = {
 	.cis_wait_streamoff = sensor_cis_wait_streamoff,
 	.cis_data_calculation = sensor_imx576_cis_data_calc,
 	.cis_set_long_term_exposure = sensor_imx576_cis_long_term_exposure,
-	.cis_set_wb_gains = sensor_imx576_cis_set_wb_gain,
 };
 
 static int cis_imx576_probe(struct i2c_client *client,
