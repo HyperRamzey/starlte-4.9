@@ -250,7 +250,7 @@ config SERIAL_SAMSUNG
 	  pins are configured.
 
 config SERIAL_SAMSUNG_UARTS_4
-	bool
+	bool "Only 4 Samsung compatible UARTs"
 	depends on SERIAL_SAMSUNG
 	default y if !(CPU_S3C2410 || CPU_S3C2412 || CPU_S3C2440 || CPU_S3C2442)
 	help
