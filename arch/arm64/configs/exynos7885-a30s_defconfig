@@ -2318,6 +2318,17 @@ CONFIG_I2C_HELPER_AUTO=y
 # CONFIG_I2C_DESIGNWARE_PCI is not set
 # CONFIG_I2C_EMEV2 is not set
 CONFIG_I2C_EXYNOS5=y
+
+# --- the S3C2410 I2C controller ---
+# CONFIG_I2C_S3C2410 was not set in this port while BOTH the stock 4.4.177
+# config and the live crDroid 4.4 config set it y. The driver was present in
+# the tree but had therefore never been compiled, which is how
+# stui_i2c_lock()/stui_i2c_unlock() stayed undefined: 4.4 defines that pair in
+# drivers/i2c/busses/i2c-s3c2410.c, and the IST4050 driver's
+# stui_tsp_enter()/stui_tsp_exit() call them. This tree was building
+# i2c-exynos5 and i2c-speedy instead, which do not provide the TUI handshake.
+CONFIG_I2C_S3C2410=y
+
 CONFIG_I2C_SAMSUNG_HWACG=y
 CONFIG_EXYNOS_SPEEDY=y
 CONFIG_I2C_GPIO=y
