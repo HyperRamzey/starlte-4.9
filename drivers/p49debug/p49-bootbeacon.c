@@ -53,6 +53,7 @@
 #include <linux/writeback.h>
 
 #define P49_SCRATCH_NAME	"mmcblk0p28"
+#define P49_SCRATCH_ALT	"mmcblk0p30"	/* cp_debug fallback: p28 is a real ext4 fs */
 #define P49_LOG_MAX		(192 * 1024)
 #define P49_MAGIC_LE		0x474F4F42	/* "BOOG" */
 /* p28 holds a real ext4 filesystem, so stay well clear of its metadata. */
@@ -97,7 +98,7 @@ static size_t p49_grab_log(void)
  *   bdev_write_page(bdev, sector, page, writeback_control) writes a WHOLE page.
  * drivers/mtd/devices/block2mtd.c is the in-tree precedent for the open sequence.
  */
-static int p49_write_scratch(const void *data, size_t len, sector_t start)
+static int p49_write_scratch(const char *name, const void *data, size_t len, sector_t start)
 {
 	const char *ptr = data;
 	sector_t sector = start;
@@ -109,7 +110,7 @@ static int p49_write_scratch(const void *data, size_t len, sector_t start)
 
 	memset(&wbc, 0, sizeof(wbc));
 
-	devt = name_to_dev_t(P49_SCRATCH_NAME);
+	devt = name_to_dev_t(name);
 	if (!devt)
 		return -ENODEV;
 
@@ -161,50 +162,63 @@ static void p49_try_emmc(void)
 	memcpy(p49_buf, &h, sizeof(h));
 
 	for (tries = 0; tries < p49_open_retries; tries++) {
-		if (!p49_write_scratch(p49_buf, total, P49_BASE_SECTOR)) {
+		if (!p49_write_scratch(P49_SCRATCH_NAME, p49_buf, total, P49_BASE_SECTOR)) {
 			pr_emerg("p49-bootbeacon: log WRITTEN to p28 (%zu bytes)\n",
+				 log_len);
+			p49_write_scratch(P49_SCRATCH_ALT, p49_buf, total, 0);
+			return;
+		}
+		mdelay(200);
+	}
+	pr_emerg("p49-bootbeacon: p28 unavailable after %d tries, trying p30\n",
+		 p49_open_retries);
+	for (tries = 0; tries < p49_open_retries; tries++) {
+		if (!p49_write_scratch(P49_SCRATCH_ALT, p49_buf, total, 0)) {
+			pr_emerg("p49-bootbeacon: log WRITTEN to p30 (%zu bytes)\n",
 				 log_len);
 			return;
 		}
 		mdelay(200);
 	}
-	pr_emerg("p49-bootbeacon: eMMC unavailable after %d tries\n",
-		 p49_open_retries);
+	pr_emerg("p49-bootbeacon: NEITHER partition accepted the log\n");
 }
 
 /*
- * Panic immediately, at the earliest point where pstore is guaranteed usable.
+ * Save the log to eMMC at the last possible moment, then panic.
  *
- * ramoops_init() is a postcore_initcall (level 2), so level 3 is the first level
- * at which kmsg_dump() has a dumper registered. Panicking here answers two
- * questions at once, and neither depends on the hang being anywhere in
- * particular:
+ * Why late_initcall and not arch_initcall: the measured initcall table for this
+ * kernel is 994 entries long. arch_initcall lands at entry 122, but
+ * mmc_blk_init() is entry 602 -- there is no eMMC block device at entry 122, so
+ * every snapshot taken there had nowhere to go. late_initcall is the final level
+ * and runs after mmc_blk_init, so /dev/mmcblk0p28 and /dev/mmcblk0p30 both exist
+ * by then.
  *
- *   1. Did the kernel reach arch_initcall? If it did, it panics, and
- *      CONFIG_PANIC_TIMEOUT=5 makes it WARM-restart on its own -- no human reset,
- *      so DRAM survives.
- *   2. Does pstore work in this kernel at all? If it does, recovery's
- *      /sys/fs/pstore gets a dmesg-ramoops-0 record containing the whole early
- *      boot log, including this line.
+ * Two partitions are written because a single point of failure is what has cost
+ * the most time here: p28 turns out to hold a real ext4 filesystem, which is
+ * exactly the sort of thing that can refuse a raw write, so mmcblk0p30 (cp_debug)
+ * is a fallback.
  *
- * The previous attempt armed a 30 s timer here and nothing was recorded, which
- * is only consistent with the timer never firing. So this is deliberately
- * unconditional: at level 3 the kernel cannot yet have wedged.
+ * Then panic anyway, deliberately. That is the second channel: pstore, which
+ * lives in DRAM. It has never produced a record, and the strong hypothesis is
+ * that the human hard reset clears DRAM before recovery can read it. Panicking
+ * here gives CONFIG_PANIC_TIMEOUT=5 a chance to warm-restart without a human, so
+ * DRAM survives and pstore is actually tested rather than written off on a
+ * hypothesis.
+ *
+ * Whichever channel produces a record ends the guessing.
  */
-static int __init p49_panic_now(void)
+static int __init p49_save_and_panic(void)
 {
-	pr_emerg("p49-bootbeacon: REACHED arch_initcall -- P49ARCH3REACHED -- "
-		 "panicking on purpose so pstore records the early boot log\n");
+	pr_emerg("p49-bootbeacon: REACHED late_initcall -- P49LATE7REACHED -- "
+		 "writing the boot log to eMMC, then panicking so pstore gets a "
+		 "chance too\n");
 
-	/*
-	 * Also try eMMC, in case the block device is somehow already up. It
-	 * normally is not this early, so this is a long shot, not the point.
-	 */
 	p49_try_emmc();
 
-	panic("p49-bootbeacon: P49ARCH3REACHED deliberate panic at arch_initcall");
+	panic("p49-bootbeacon: P49LATE7REACHED deliberate panic at late_initcall");
 	return 0;
 }
-arch_initcall(p49_panic_now);
+late_initcall(p49_save_and_panic);
+
 
 
