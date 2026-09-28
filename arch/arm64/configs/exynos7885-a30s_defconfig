@@ -6071,7 +6071,7 @@ CONFIG_CAMERA_ACT_DW9808_OBJ=y
 # compiles against tzdev. Chain: IST4050 -> SAMSUNG_TUI -> TZDEV.
 # Live device: i2c 11-0050 = ist40xx-ts, compatible "imagis,ist40xx-ts"
 # (exynos7904-a30s_common.dtsi:1239). Produces sec_touchscreen + sec_touchproximity.
-CONFIG_TZDEV=y
+# CONFIG_TZDEV is not set
 CONFIG_TZDEV_USE_ARM_CALLING_CONVENTION=y
 CONFIG_TZDEV_IWI_EVENT=446
 CONFIG_TZDEV_IWI_PANIC=447
@@ -6090,8 +6090,8 @@ CONFIG_TZDEV_BOOST=y
 #   the very first boot is not a risk worth taking before the kernel is
 #   otherwise known good. With it off, tzdev builds and normal-world touch
 #   works; trusted-UI sessions correctly fail with -ENODEV.
-CONFIG_TEEGRIS_VERSION=3
-CONFIG_SAMSUNG_TUI=y
+# CONFIG_TEEGRIS_VERSION is not set
+# CONFIG_SAMSUNG_TUI is not set
 # CONFIG_SAMSUNG_TUI_TEST is not set
 CONFIG_TOUCHSCREEN_IST4050=y
 
