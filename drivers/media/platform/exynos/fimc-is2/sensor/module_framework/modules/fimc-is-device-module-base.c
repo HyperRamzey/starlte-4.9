@@ -825,6 +825,7 @@ int sensor_module_s_stream(struct v4l2_subdev *subdev, int enable)
 
 	/* PDP subdev control */
 	if (enable) {
+#ifdef CONFIG_CAMERA_PDP
 		int pdp_ch = (device->ischain->group_3aa.id == GROUP_ID_3AA0) ? 0 : 1;
 		struct fimc_is_sensor_cfg *cfg = device->cfg;
 		struct v4l2_subdev *subdev_pdp;
@@ -851,6 +852,8 @@ int sensor_module_s_stream(struct v4l2_subdev *subdev, int enable)
 			}
 		}
 
+#endif		/* CONFIG_CAMERA_PDP */
+
 		/*
 		 * Camera first mode set high speed recording and maintain 120fps
 		 * not setting exposure so need to this check
@@ -865,7 +868,9 @@ int sensor_module_s_stream(struct v4l2_subdev *subdev, int enable)
 				= sensor_peri->sensor_interface.otf_flag_3aa ? DIFF_OTF_DELAY : DIFF_M2M_DELAY;
 		}
 	} else {
+#ifdef CONFIG_CAMERA_PDP
 		pdp_unregister(module);
+#endif		/* CONFIG_CAMERA_PDP */
 		fimc_is_sensor_deinit_sensor_thread(sensor_peri);
 	}
 
@@ -878,9 +883,11 @@ int sensor_module_s_stream(struct v4l2_subdev *subdev, int enable)
 	return 0;
 
 err_peri_s_stream:
+#ifdef CONFIG_CAMERA_PDP
 err_pdp_s_stream:
 err_pdp_set_fmt:
 	pdp_unregister(module);
+#endif		/* CONFIG_CAMERA_PDP */
 
 	return ret;
 }
