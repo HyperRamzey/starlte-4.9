@@ -45,8 +45,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
-#include <linux/timer.h>
-#include <linux/jiffies.h>
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/blkdev.h>
@@ -70,12 +68,6 @@ struct p49_hdr {
 } __attribute__((packed));
 
 static char p49_buf[P49_LOG_MAX] __attribute__((aligned(4096)));
-static bool p49_armed;
-
-static int p49_timeout_ms = 30000;
-module_param_named(timeout_ms, p49_timeout_ms, int, 0444);
-MODULE_PARM_DESC(timeout_ms,
-	"ms after arch_initcall before panicking; 0 disables the whole beacon");
 
 static int p49_open_retries = 40;
 module_param_named(open_retries, p49_open_retries, int, 0444);
@@ -181,47 +173,38 @@ static void p49_try_emmc(void)
 }
 
 /*
- * The timer that turns a silent wedge into a recorded panic. If this ever fires
- * we know the kernel reached arch_initcall and then stopped making progress.
+ * Panic immediately, at the earliest point where pstore is guaranteed usable.
+ *
+ * ramoops_init() is a postcore_initcall (level 2), so level 3 is the first level
+ * at which kmsg_dump() has a dumper registered. Panicking here answers two
+ * questions at once, and neither depends on the hang being anywhere in
+ * particular:
+ *
+ *   1. Did the kernel reach arch_initcall? If it did, it panics, and
+ *      CONFIG_PANIC_TIMEOUT=5 makes it WARM-restart on its own -- no human reset,
+ *      so DRAM survives.
+ *   2. Does pstore work in this kernel at all? If it does, recovery's
+ *      /sys/fs/pstore gets a dmesg-ramoops-0 record containing the whole early
+ *      boot log, including this line.
+ *
+ * The previous attempt armed a 30 s timer here and nothing was recorded, which
+ * is only consistent with the timer never firing. So this is deliberately
+ * unconditional: at level 3 the kernel cannot yet have wedged.
  */
-static void p49_expired(unsigned long data)
+static int __init p49_panic_now(void)
 {
-	pr_emerg("p49-bootbeacon: TIMED OUT after %d ms -- boot did not reach "
-		 "late_initcall. panicking so pstore can record the log\n",
-		 p49_timeout_ms);
-	panic("p49-bootbeacon: boot stalled before late_initcall");
-}
+	pr_emerg("p49-bootbeacon: REACHED arch_initcall -- P49ARCH3REACHED -- "
+		 "panicking on purpose so pstore records the early boot log\n");
 
-static struct timer_list p49_timer;
-
-static int __init p49_arm_timer(void)
-{
-	if (p49_timeout_ms <= 0) {
-		pr_info("p49-bootbeacon: disabled (timeout_ms=%d)\n",
-			p49_timeout_ms);
-		return 0;
-	}
-
-	setup_timer(&p49_timer, p49_expired, 0);
-	mod_timer(&p49_timer, jiffies + msecs_to_jiffies(p49_timeout_ms));
-	p49_armed = true;
-
-	pr_emerg("p49-bootbeacon: REACHED arch_initcall, kernel alive this far. "
-		 "armed a %d ms timeout, so a stall will panic and be recorded\n",
-		 p49_timeout_ms);
-	return 0;
-}
-arch_initcall(p49_arm_timer);
-
-static int __init p49_reached_late(void)
-{
-	if (p49_armed) {
-		del_timer_sync(&p49_timer);
-		p49_armed = false;
-		pr_emerg("p49-bootbeacon: REACHED late_initcall, boot is progressing. "
-			 "timeout cancelled\n");
-	}
+	/*
+	 * Also try eMMC, in case the block device is somehow already up. It
+	 * normally is not this early, so this is a long shot, not the point.
+	 */
 	p49_try_emmc();
+
+	panic("p49-bootbeacon: P49ARCH3REACHED deliberate panic at arch_initcall");
 	return 0;
 }
-late_initcall(p49_reached_late);
+arch_initcall(p49_panic_now);
+
+
